@@ -130,9 +130,13 @@ const unicodeRanges = [
     {begin: 0x1F030, end: 0x1F09F}  // Domino Tiles
 ];
 
+/**
+ * @param {number} unicode
+ * @returns {number }
+ */
 function getUnicodeRange(unicode) {
-    for (let i = 0; i < unicodeRanges.length; i += 1) {
-        const range = unicodeRanges[i];
+    for (const [range, i] of unicodeRanges.map((...a) => a ) )
+    {
         if (unicode >= range.begin && unicode < range.end) {
             return i;
         }
@@ -141,8 +145,12 @@ function getUnicodeRange(unicode) {
     return -1;
 }
 
-// Parse the OS/2 and Windows metrics `OS/2` table
-function parseOS2Table(data, start) {
+/**
+ * parse the OS/2 and Windows metrics `OS/2` table.
+ * 
+ * @satisfies {(...args: Parameters<typeof parse.Parser> ) => unknown }
+ */
+const parseOS2Table = function (data, start) {
     const os2 = {};
     const p = new parse.Parser(data, start);
     os2.version = p.parseUShort();
@@ -161,6 +169,7 @@ function parseOS2Table(data, start) {
     os2.yStrikeoutSize = p.parseShort();
     os2.yStrikeoutPosition = p.parseShort();
     os2.sFamilyClass = p.parseShort();
+    /** @type {Array<ReturnType<typeof p.parseByte> > } */
     os2.panose = [];
     for (let i = 0; i < 10; i++) {
         os2.panose[i] = p.parseByte();
@@ -193,8 +202,18 @@ function parseOS2Table(data, start) {
     }
 
     return os2;
-}
+} ;
 
+/**
+ * 
+ * @typedef {ReturnType<typeof parseOS2Table> & {} } OS2Dict
+ */
+/** TS-1205 */
+const OS2Dict = {} ;
+
+/**
+ * 
+ */
 function makeOS2Table(options) {
     return new table.Table('OS/2', [
         {name: 'version', type: 'USHORT', value: 0x0003},
@@ -245,5 +264,7 @@ function makeOS2Table(options) {
         {name: 'usMaxContext', type: 'USHORT', value: 0}
     ], options);
 }
+
+export { OS2Dict, } ;
 
 export default { parse: parseOS2Table, make: makeOS2Table, unicodeRanges, getUnicodeRange };

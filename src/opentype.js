@@ -3,6 +3,8 @@
 // (c) 2015 Frederik De Bleser
 // opentype.js may be freely distributed under the MIT license.
 
+import { athrow, asNonNull } from './athrow.mjs';
+
 import { tinf_uncompress as inflate } from './tiny-inflate@1.0.3.esm.js'; // from code4fukui/tiny-inflate-es
 import { isNode } from './util.js';
 import Font from './font.js';
@@ -35,107 +37,114 @@ import os2 from './tables/os2.js';
 import post from './tables/post.js';
 import meta from './tables/meta.js';
 import gasp from './tables/gasp.js';
+
 /**
  * The opentype library.
  * @namespace opentype
  */
 
 // File loaders /////////////////////////////////////////////////////////
-/**
- * Loads a font from a file. The callback throws an error message as the first parameter if it fails
- * and the font as an ArrayBuffer in the second parameter if it succeeds.
- * @param  {string} path - The path of the file
- * @param  {Function} callback - The function to call when the font load completes
- */
-function loadFromFile(path, callback) {
-    require('fs').readFile(path, function(err, buffer) {
-        if (err) {
-            return callback(err.message);
-        }
-
-        callback(null, buffer);
-    });
-}
 
 /**
  * Loads a font from a URL. The callback throws an error message as the first parameter if it fails
  * and the font as an ArrayBuffer in the second parameter if it succeeds.
  * @param  {string} url - The URL of the font file.
- * @param  {Function} callback - The function to call when the font load completes
+ * @param  {(...args: [{}, never?] | [null, Buffer | ArrayBuffer] ) => void } callback - The function to call when the font load completes
+ * @returns {void}
+ * 
+ * @deprecated use {@link fetch}, (Node-only) `createRequest`, or (Browser-only) {@link XMLHttpRequest } directly to fetch blocks.
  */
 function loadFromUrl(url, callback) {
 
+    if (typeof fetch !== 'undefined') {
+        return loadUsingDomFetchMethod(url, callback) ;
+    }
+
     if (typeof XMLHttpRequest !== 'undefined') {
         // Browser environment, we use XHR.
-
-        const request = new XMLHttpRequest();
-        request.open('get', url, true);
-        request.responseType = 'arraybuffer';
-        request.onload = function() {
-            if (request.response) {
-                return callback(null, request.response);
-            } else {
-                return callback('Font could not be loaded: ' + request.statusText);
-            }
-        };
-
-        request.onerror = function() {
-            callback('Font could not be loaded');
-        };
-
-        request.send();
-
-    } else if ( isNode() ) {
-        // Node environment, we use the http/https libraries (to avoid extra dependencies like axios).
-
-        const lib = url.startsWith('https:') ? require('https') : require('http');
-
-        const req = lib.request(url, res => {
-            // Follow redirections
-            if ((res.statusCode === 301 || res.statusCode === 302) && res.headers.location) {
-                return loadFromUrl(res.headers.location, callback);
-            }
-
-            res.setEncoding('binary');
-
-            const chunks = [];
-
-            res.on('data', (chunk) => {
-                // Convert binary to Buffer and append.
-                chunks.push(Buffer.from(chunk, 'binary'));
-            });
-
-            res.on('end', () => {
-                // group chunks into a single response Buffer
-                const b = Buffer.concat(chunks);
-                // convert Buffer to ArrayBuffer for compatibility with XHR interface
-                const ab = b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength);
-                callback(null, ab);
-            });
-
-            res.on('error', (error) => {
-                callback(error, undefined);
-            });
-
-        });
-
-        req.on('error', error => {
-            callback(error, undefined);
-        });
-
-        req.end();
-
+        return loadUsingDomXmlHttpRequest(url, callback) ;
     }
+
+    throw new TypeError(`unsupported environment ; neither 'fetch' nor 'XMLHttpRequest' were present .`) ;
+}
+
+/**
+ * 
+ * load using `fetch` (assuming it's there).
+ * 
+ * @type {(...args: Parameters<typeof loadFromUrl>) => ReturnType<typeof loadFromUrl> }
+ */
+function loadUsingDomFetchMethod(url, callback)
+{
+  ;
+
+  (async () => {
+    const r = await fetch(url) ;
+    const bl = await r.arrayBuffer() ;
+    return bl ;
+  })()
+  .then(r => callback(null, r) , z => callback(z) )
+  ;
+}
+
+/**
+ * 
+ * load using `XMLHttpRequest` (assuming it's there).
+ * 
+ * @type {(...args: Parameters<typeof loadFromUrl>) => ReturnType<typeof loadFromUrl> }
+ */
+function loadUsingDomXmlHttpRequest(url, callback)
+{
+
+    const request = new XMLHttpRequest();
+    request.open('get', url, true);
+    request.responseType = 'arraybuffer';
+    request.onload = function() {
+        if (request.response) {
+            return callback(null, request.response);
+        } else {
+            return callback('Font could not be loaded: ' + request.statusText);
+        }
+    };
+
+    request.onerror = function() {
+        callback('Font could not be loaded');
+    };
+
+    request.send();
+
+}
+
+function TDE_ARRAY_PROTOTYPE() {
+    /**
+     * @type {Array<{
+     * tag: ReturnType<typeof parse.getTag>,
+     * checksum?: ReturnType<typeof parse.getULong>,
+     * offset: ReturnType<typeof parse.getULong>,
+     * length: ReturnType<typeof parse.getULong>,
+     * compression: string | false,
+     * compressedLength ?: any ,
+     * }> }
+     * 
+     */
+    const tableEntries = [];
+    return tableEntries ;
 }
 
 // Table Directory Entries //////////////////////////////////////////////
 /**
  * Parses OpenType table entries.
- * @param  {DataView}
- * @param  {Number}
- * @return {Object[]}
+ * @param  {DataView} data
+ * @param  {Number} numTables
  */
 function parseOpenTypeTableEntries(data, numTables) {
+    // /**
+    //  * @typedef {Object}
+    //  * 
+    //  */
+    /**
+     * @type {Array<ReturnType<typeof TDE_ARRAY_PROTOTYPE >[number] > }
+     */
     const tableEntries = [];
     let p = 12;
     for (let i = 0; i < numTables; i += 1) {
@@ -152,11 +161,13 @@ function parseOpenTypeTableEntries(data, numTables) {
 
 /**
  * Parses WOFF table entries.
- * @param  {DataView}
- * @param  {Number}
- * @return {Object[]}
+ * @param  {DataView} data
+ * @param  {Number} numTables
  */
 function parseWOFFTableEntries(data, numTables) {
+    /**
+     * @type {Array<ReturnType<typeof TDE_ARRAY_PROTOTYPE >[number] > }
+     */
     const tableEntries = [];
     let p = 44; // offset to the first table directory entry.
     for (let i = 0; i < numTables; i += 1) {
@@ -164,6 +175,7 @@ function parseWOFFTableEntries(data, numTables) {
         const offset = parse.getULong(data, p + 4);
         const compLength = parse.getULong(data, p + 8);
         const origLength = parse.getULong(data, p + 12);
+        /** @type {string | false} */
         let compression;
         if (compLength < origLength) {
             compression = 'WOFF';
@@ -180,15 +192,14 @@ function parseWOFFTableEntries(data, numTables) {
 }
 
 /**
- * @typedef TableData
- * @type Object
+ * @typedef {Object} TableData
  * @property {DataView} data - The DataView
  * @property {number} offset - The data offset.
  */
 
 /**
- * @param  {DataView}
- * @param  {Object}
+ * @param  {DataView} data
+ * @param  {ReturnType<typeof TDE_ARRAY_PROTOTYPE>[number] } tableEntry
  * @return {TableData}
  */
 function uncompressTable(data, tableEntry) {
@@ -197,7 +208,7 @@ function uncompressTable(data, tableEntry) {
         const outBuffer = new Uint8Array(tableEntry.length);
         inflate(inBuffer, outBuffer);
         if (outBuffer.byteLength !== tableEntry.length) {
-            throw new Error('Decompression error: ' + tableEntry.tag + ' decompressed length doesn\'t match recorded length');
+            throw new Error(`Decompression error: ${tableEntry.tag} decompressed length doesn\'t match recorded length`);
         }
 
         const view = new DataView(outBuffer.buffer, 0);
@@ -209,12 +220,29 @@ function uncompressTable(data, tableEntry) {
 
 // Public API ///////////////////////////////////////////////////////////
 
+class MissingTablesInFontException
+extends
+TypeError
+{
+  get [Symbol.toStringTag]() { return "MissingTablesInFontError" ; }
+
+  /**
+   * @param {{ detailMsg: string, }} options
+   */
+  constructor({ detailMsg: msg, }) {
+    super(`[font] ${msg} `) ;
+  }
+}
+const throwMissingTablesInFontException = /** @satisfies {(...args: ConstructorParameters<typeof MissingTablesInFontException> ) } */ ((...a) => {
+  throw new MissingTablesInFontException(...a) ;
+}) ;
+
 /**
  * Parse the OpenType file data (as an ArrayBuffer) and return a Font object.
  * Throws an error if the font could not be parsed.
- * @param  {ArrayBuffer}
+ * @param  {ArrayBuffer} buffer
  * @param  {Object} opt - options for parsing
- * @return {opentype.Font}
+ * @return {Font}
  */
 function parseBuffer(buffer, opt={}) {
     let indexToLocFormat;
@@ -232,6 +260,7 @@ function parseBuffer(buffer, opt={}) {
     // Instead we use DataViews where we can specify endianness.
     const data = new DataView(buffer, 0);
     let numTables;
+    /** @type {(ReturnType<typeof TDE_ARRAY_PROTOTYPE>[number] )[] } */
     let tableEntries = [];
     const signature = parse.getTag(data, 0);
     if (signature === String.fromCharCode(0, 1, 0, 0) || signature === 'true' || signature === 'typ1') {
@@ -249,16 +278,16 @@ function parseBuffer(buffer, opt={}) {
         } else if (flavor === 'OTTO') {
             font.outlinesFormat = 'cff';
         } else {
-            throw new Error('Unsupported OpenType flavor ' + signature);
+            throw new Error(`Unsupported OpenType flavor ${signature}`);
         }
 
         numTables = parse.getUShort(data, 12);
         tableEntries = parseWOFFTableEntries(data, numTables);
     } else if (signature === 'wOF2') {
         var issue = 'https://github.com/opentypejs/opentype.js/issues/183#issuecomment-1147228025';
-        throw new Error('WOFF2 require an external decompressor library, see examples at: ' + issue);
+        throw new Error(`WOFF2 require an external decompressor library, see examples at: ${issue}`);
     } else {
-        throw new Error('Unsupported OpenType signature ' + signature);
+        throw new Error(`Unsupported OpenType signature ${signature}`);
     }
 
     let cffTableEntry;
@@ -278,9 +307,18 @@ function parseBuffer(buffer, opt={}) {
     let metaTableEntry;
     let p;
 
-    for (let i = 0; i < numTables; i += 1) {
-        const tableEntry = tableEntries[i];
+    for (const tableEntry of tableEntries)
+    {
         let table;
+
+        /**
+         * NOTE:
+         * do not edit the case string literals arbitrarily ;
+         * the string literals each needs to exactly match,
+         * the casing and the extra trailing white-space chars are intentional
+         * .
+         * 
+         */
         switch (tableEntry.tag) {
             case 'avar':
                 avarTableEntry = tableEntry;
@@ -343,7 +381,7 @@ function parseBuffer(buffer, opt={}) {
                 font.numGlyphs = font.tables.maxp.numGlyphs;
                 break;
             case 'name':
-                nameTableEntry = tableEntry;
+                nameTableEntry = tableEntry ;
                 break;
             case 'OS/2':
                 table = uncompressTable(data, tableEntry);
@@ -393,7 +431,10 @@ function parseBuffer(buffer, opt={}) {
         }
     }
 
-    const nameTable = uncompressTable(data, nameTableEntry);
+    if (!nameTableEntry) { return athrow(`[font] missing nameTableEntry. such table is necessary.`) ; }
+    if (!hmtxTableEntry) { return athrow(`[font] missing hmtxTableEntry. such table is necessary.`) ; }
+
+    const nameTable = uncompressTable(data, nameTableEntry );
     font.tables.name = _name.parse(nameTable.data, nameTable.offset, ltagTable);
     font.names = font.tables.name;
 
@@ -410,10 +451,10 @@ function parseBuffer(buffer, opt={}) {
         const cffTable2 = uncompressTable(data, cff2TableEntry);
         cff.parse(cffTable2.data, cffTable2.offset, font, opt);
     } else {
-        throw new Error('Font doesn\'t contain TrueType, CFF or CFF2 outlines.');
+      throw new Error(`[font] no processible outline-data table ; fonts must contain TrueType, CFF or CFF2 outlines.` );
     }
 
-    const hmtxTable = uncompressTable(data, hmtxTableEntry);
+    const hmtxTable = uncompressTable(data, hmtxTableEntry );
     hmtx.parse(font, hmtxTable.data, hmtxTable.offset, font.numberOfHMetrics, font.numGlyphs, font.glyphs, opt);
     addGlyphNames(font, opt);
 
@@ -452,10 +493,10 @@ function parseBuffer(buffer, opt={}) {
 
     if (gvarTableEntry) {
         if (!fvarTableEntry) {
-            console.warn('This font provides a gvar table, but no fvar table, which is required for variable fonts.');
+          console.warn(`[font] present a gvar table, but no fvar table, which is required for variable fonts.`);
         }
         if (!glyfTableEntry) {
-            console.warn('This font provides a gvar table, but no glyf table. Glyph variation only works with TrueType outlines.');
+          console.warn(`[font] present a gvar table, but no glyf table. Glyph variation only works with TrueType outlines.`);
         }
         const gvarTable = uncompressTable(data, gvarTableEntry);
         font.tables.gvar = gvar.parse(gvarTable.data, gvarTable.offset, font.names);
@@ -463,7 +504,7 @@ function parseBuffer(buffer, opt={}) {
 
     if (avarTableEntry) {
         if (!fvarTableEntry) {
-            console.warn('This font provides an avar table, but no fvar table, which is required for variable fonts.');
+          console.warn(`[font] present an avar table, but no fvar table, which is required for variable fonts.`);
         }
         const avarTable = uncompressTable(data, avarTableEntry);
         font.tables.avar = avar.parse(avarTable.data, avarTable.offset, font.tables.fvar);
@@ -478,60 +519,6 @@ function parseBuffer(buffer, opt={}) {
     return font;
 }
 
-/**
- * Asynchronously load the font from a URL or a filesystem. When done, call the callback
- * with two arguments `(err, font)`. The `err` will be null on success,
- * the `font` is a Font object.
- * We use the node.js callback convention so that
- * opentype.js can integrate with frameworks like async.js.
- * @alias opentype.load
- * @param  {string} url - The URL of the font to load.
- * @param  {Function} callback - The callback.
- */
-function load(url, callback, opt = {}) {
-    const isNode = typeof window === 'undefined';
-    const loadFn = isNode && !opt.isUrl ? loadFromFile : loadFromUrl;
-
-    return new Promise((resolve, reject) => {
-        loadFn(url, function(err, buffer) {
-            if (err) {
-                if (callback) {
-                    return callback(err);
-                } else {
-                    reject(err);
-                }
-            }
-            let font;
-            try {
-                font = parseBuffer(buffer, opt);
-            } catch (e) {
-                if (callback) {
-                    return callback(e, null);
-                } else {
-                    reject(e);
-                }
-            }
-            if (callback) {
-                return callback(null, font);
-            } else {
-                resolve(font);
-            }
-        });
-    });
-}
-
-/**
- * Synchronously load the font from a URL or file.
- * When done, returns the font object or throws an error.
- * @alias opentype.loadSync
- * @param  {string} url - The URL of the font to load.
- * @param  {Object} opt - opt.lowMemory
- * @return {opentype.Font}
- */
-function loadSync(url, opt) {
-    return parseBuffer(require('fs').readFileSync(url), opt);
-}
-
 export {
     Font,
     Glyph,
@@ -539,6 +526,16 @@ export {
     BoundingBox,
     parse as _parse,
     parseBuffer as parse,
-    load,
-    loadSync
+    parseBuffer,
 };
+
+export {
+  loadFromUrl,
+  loadUsingDomFetchMethod,
+  loadUsingDomXmlHttpRequest,
+};
+
+// TODO rid of these
+export {
+  load ,
+} from "./opentype_sv.mjs" ;

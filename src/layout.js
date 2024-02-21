@@ -1,15 +1,29 @@
 // The Layout object is the prototype of Substitution objects, and provides
 // utility methods to manipulate common layout tables (GPOS, GSUB, GDEF...)
 
+import { athrow, } from './athrow.mjs';
+
+import { Table, ClassDef, Coverage } from './table.js';
+
 import check from './check.js';
 
-function searchTag(arr, tag) {
+/**
+ * Binary search an object by "tag" property
+ * 
+ * @instance
+ * @function searchTag
+ * @memberof opentype.Layout
+ * @param  {ReadonlyArray} src
+ * @param  {string} tag tag
+ * @return {number}
+ */
+function searchTag(src, tag) {
     /* jshint bitwise: false */
     let imin = 0;
-    let imax = arr.length - 1;
+    let imax = src.length - 1;
     while (imin <= imax) {
         const imid = (imin + imax) >>> 1;
-        const val = arr[imid].tag;
+        const val = src[imid].tag;
         if (val === tag) {
             return imid;
         } else if (val < tag) {
@@ -20,13 +34,23 @@ function searchTag(arr, tag) {
     return -imin - 1;
 }
 
-function binSearch(arr, value) {
+/**
+ * Binary search in a list of numbers
+ * 
+ * @instance
+ * @function binSearch
+ * @memberof opentype.Layout
+ * @param  {ReadonlyArray} src
+ * @param  {number} value value
+ * @return {number}
+ */
+function binSearch(src, value) {
     /* jshint bitwise: false */
     let imin = 0;
-    let imax = arr.length - 1;
+    let imax = src.length - 1;
     while (imin <= imax) {
         const imid = (imin + imax) >>> 1;
-        const val = arr[imid];
+        const val = src[imid];
         if (val === value) {
             return imid;
         } else if (val < value) {
@@ -37,87 +61,91 @@ function binSearch(arr, value) {
     return -imin - 1;
 }
 
-// binary search in a list of ranges (coverage, class definition)
-function searchRange(ranges, value) {
+// 
+/**
+ * binary search in a list of ranges (coverage, class definition)
+ * 
+ * @param  {readonly { start: number, end: number ; }[] } ranges
+ * @param  {number} value value
+ */
+function searchRange(ranges, value)
+{
     // jshint bitwise: false
     let range;
     let imin = 0;
-    let imax = ranges.length - 1;
+    let imax = ranges.length + -1 ;
     while (imin <= imax) {
         const imid = (imin + imax) >>> 1;
-        range = ranges[imid];
+        range = ranges[imid] ?? athrow(`[searchRange] 'ranges[imid = ${imid } ]' undefined. `) ;
         const start = range.start;
         if (start === value) {
             return range;
         } else if (start < value) {
             imin = imid + 1;
-        } else { imax = imid - 1; }
+        } else { imax = imid + -1 ; }
     }
     if (imin > 0) {
-        range = ranges[imin - 1];
+        range = ranges[imin + -1 ] ?? athrow(`[searchRange] 'ranges[(imin = ${imin }) + -1 ]' undefined. `) ;
         if (value > range.end) return 0;
         return range;
     }
 }
 
-/**
- * @exports opentype.Layout
- * @class
- */
-function Layout(font, tableName) {
-    this.font = font;
-    this.tableName = tableName;
-}
+class Layout {
+    //
+    /**
+     * @param {import("./font.js").default } font
+     * @param {string} tableName table name
+     */
+    constructor(font, tableName) {
+        this.font = font;
+        this.tableName = tableName;
 
-Layout.prototype = {
+        /* */
 
+        /** @type {() => Table } */
+        this.createDefaultTable ;
+
+    }
+
+    //
+    
     /**
      * Binary search an object by "tag" property
-     * @instance
-     * @function searchTag
-     * @memberof opentype.Layout
-     * @param  {Array} arr
-     * @param  {string} tag
-     * @return {number}
      */
-    searchTag: searchTag,
+    searchTag = searchTag ;
 
     /**
      * Binary search in a list of numbers
-     * @instance
-     * @function binSearch
-     * @memberof opentype.Layout
-     * @param  {Array} arr
-     * @param  {number} value
-     * @return {number}
      */
-    binSearch: binSearch,
+    binSearch = binSearch ;
 
     /**
      * Get or create the Layout table (GSUB, GPOS etc).
-     * @param  {boolean} create - Whether to create a new one.
-     * @return {Object} The GSUB or GPOS table.
+     * @param  {boolean} [create] - Whether to create a new one.
+     * @returns {{ scripts: XScript[] }}
      */
-    getTable: function(create) {
+    getTable (create = false)
+    {
         let layout = this.font.tables[this.tableName];
         if (!layout && create) {
             layout = this.font.tables[this.tableName] = this.createDefaultTable();
         }
         return layout;
-    },
+    } ;
 
     /**
      * Returns all scripts in the substitution table.
      * @instance
-     * @return {Array}
      */
-    getScriptNames: function() {
+    getScriptNames ()
+    {
         let layout = this.getTable();
         if (!layout) { return []; }
         return layout.scripts.map(function(script) {
             return script.tag;
         });
-    },
+    } ;
 
     /**
      * Returns the best bet for a script name.
@@ -125,34 +153,38 @@ Layout.prototype = {
      * If not, returns 'latn' if it exists.
      * If neither exist, returns undefined.
      */
-    getDefaultScriptName: function() {
+    getDefaultScriptName()
+    {
         let layout = this.getTable();
         if (!layout) { return; }
         let hasLatn = false;
-        for (let i = 0; i < layout.scripts.length; i++) {
-            const name = layout.scripts[i].tag;
+        for (const script of layout.scripts )
+        {
+            const name = script.tag;
             if (name === 'DFLT') return name;
             if (name === 'latn') hasLatn = true;
         }
         if (hasLatn) return 'latn';
-    },
+    } ;
 
     /**
      * Returns all LangSysRecords in the given script.
      * @instance
      * @param {string} [script='DFLT']
-     * @param {boolean} create - forces the creation of this script table if it doesn't exist.
-     * @return {Object} An object with tag and script properties.
+     * @param {boolean} [create] - forces the creation of this script table if it doesn't exist.
+     * 
      */
-    getScriptTable: function(script, create) {
+    getScriptTable(script, create)
+    {
         const layout = this.getTable(create);
         if (layout) {
             script = script || 'DFLT';
             const scripts = layout.scripts;
             const pos = searchTag(layout.scripts, script);
             if (pos >= 0) {
-                return scripts[pos].script;
+                return (scripts[pos] ?? athrow(`[Layout.this.getScriptTable]  `) ).script;
             } else if (create) {
+                /** @type {XScript } */
                 const scr = {
                     tag: script,
                     script: {
@@ -164,17 +196,18 @@ Layout.prototype = {
                 return scr.script;
             }
         }
-    },
+    } ;
 
     /**
      * Returns a language system table
      * @instance
      * @param {string} [script='DFLT']
      * @param {string} [language='dlft']
-     * @param {boolean} create - forces the creation of this langSysTable if it doesn't exist.
-     * @return {Object}
+     * @param {boolean} [create] - forces the creation of this langSysTable if it doesn't exist.
+     * 
      */
-    getLangSysTable: function(script, language, create) {
+    getLangSysTable (script, language, create)
+    {
         const scriptTable = this.getScriptTable(script, create);
         if (scriptTable) {
             if (!language || language === 'dflt' || language === 'DFLT') {
@@ -182,7 +215,7 @@ Layout.prototype = {
             }
             const pos = searchTag(scriptTable.langSysRecords, language);
             if (pos >= 0) {
-                return scriptTable.langSysRecords[pos].langSys;
+                return (scriptTable.langSysRecords[pos] ?? athrow(`[Layout.this.getLangSysTable] not found for ${pos} `) ).langSys;
             } else if (create) {
                 const langSysRecord = {
                     tag: language,
@@ -192,18 +225,18 @@ Layout.prototype = {
                 return langSysRecord.langSys;
             }
         }
-    },
+    } ;
 
     /**
      * Get a specific feature table.
-     * @instance
-     * @param {string} [script='DFLT']
-     * @param {string} [language='dlft']
-     * @param {string} feature - One of the codes listed at https://www.microsoft.com/typography/OTSPEC/featurelist.htm
-     * @param {boolean} create - forces the creation of the feature table if it doesn't exist.
-     * @return {Object}
+     * 
+     * - param {string} [script='DFLT']
+     * - param {string} [language='dlft']
+     * - param {string} [feature] - One of the codes listed at https://www.microsoft.com/typography/OTSPEC/featurelist.htm
+     * - param {boolean} [create] - forces the creation of the feature table if it doesn't exist.
+     * 
      */
-    getFeatureTable: function(script, language, feature, create) {
+    getFeatureTable = /** @satisfies {(this: Layout, ...args: [script ?: String, language?: string, ...f: [feature: String, create: boolean] | [never?, never?] ] ) => {}} */ (function(script, language, feature, create) {
         const langSysTable = this.getLangSysTable(script, language, create);
         if (langSysTable) {
             let featureRecord;
@@ -211,8 +244,9 @@ Layout.prototype = {
             const allFeatures = this.font.tables[this.tableName].features;
             // The FeatureIndex array of indices is in arbitrary order,
             // even if allFeatures is sorted alphabetically by feature tag.
-            for (let i = 0; i < featIndexes.length; i++) {
-                featureRecord = allFeatures[featIndexes[i]];
+            for (const featIndex of featIndexes )
+            {
+                featureRecord = allFeatures[featIndex];
                 if (featureRecord.tag === feature) {
                     return featureRecord.feature;
                 }
@@ -230,21 +264,22 @@ Layout.prototype = {
                 return featureRecord.feature;
             }
         }
-    },
+    }) ;
 
     /**
      * Get the lookup tables of a given type for a script/language/feature.
      * @instance
      * @param {string} [script='DFLT']
      * @param {string} [language='dlft']
-     * @param {string} feature - 4-letter feature code
-     * @param {number} lookupType - 1 to 9
-     * @param {boolean} create - forces the creation of the lookup table if it doesn't exist, with no subtables.
-     * @return {Object[]}
+     * @param {string} [feature] - 4-letter feature code
+     * @param {number} [lookupType] - 1 to 9
+     * @param {boolean} [create] - forces the creation of the lookup table if it doesn't exist, with no subtables.
+     * 
      */
-    getLookupTables: function(script, language, feature, lookupType, create) {
+    getLookupTables (script, language, feature, lookupType, create)
+    {
         const featureTable = this.getFeatureTable(script, language, feature, create);
-        const tables = [];
+        const tables = /** @type {KTOTSubtabular[] } */ ([]);
         if (featureTable) {
             let lookupTable;
             const lookupListIndexes = featureTable.lookupListIndexes;
@@ -270,16 +305,17 @@ Layout.prototype = {
             }
         }
         return tables;
-    },
+    } ;
 
     /**
      * Find a glyph in a class definition table
      * https://docs.microsoft.com/en-us/typography/opentype/spec/chapter2#class-definition-table
-     * @param {object} classDefTable - an OpenType Layout class definition table
+     * @param {ClassDef} classDefTable - an OpenType Layout class definition table
      * @param {number} glyphIndex - the index of the glyph to find
-     * @returns {number} -1 if not found
+     * @returns number, or -1 if not found
      */
-    getGlyphClass: function(classDefTable, glyphIndex) {
+    getGlyphClass (classDefTable, glyphIndex)
+    {
         switch (classDefTable.format) {
             case 1: {
                 if (classDefTable.startGlyph <= glyphIndex && glyphIndex < classDefTable.startGlyph + classDefTable.classes.length) {
@@ -292,16 +328,18 @@ Layout.prototype = {
                 return range ? range.classId : 0;
             }
         }
-    },
+        return athrow(`unsupported format ${classDefTable.format}. `) ;
+    } ;
 
     /**
      * Find a glyph in a coverage table
      * https://docs.microsoft.com/en-us/typography/opentype/spec/chapter2#coverage-table
-     * @param {object} coverageTable - an OpenType Layout coverage table
+     * @param {Coverage} coverageTable - an OpenType Layout coverage table
      * @param {number} glyphIndex - the index of the glyph to find
-     * @returns {number} -1 if not found
+     * @returns number, or -1 if not found
      */
-    getCoverageIndex: function(coverageTable, glyphIndex) {
+    getCoverageIndex (coverageTable, glyphIndex)
+    {
         switch (coverageTable.format) {
             case 1: {
                 const index = binSearch(coverageTable.glyphs, glyphIndex);
@@ -312,17 +350,19 @@ Layout.prototype = {
                 return range ? range.index + glyphIndex - range.start : -1;
             }
         }
-    },
+        return athrow(`unsupported format ${coverageTable.format} `) ;
+    } ;
 
     /**
      * Returns the list of glyph indexes of a coverage table.
      * Format 1: the list is stored raw
      * Format 2: compact list as range records.
      * @instance
-     * @param  {Object} coverageTable
-     * @return {Array}
+     * @param  {KTKerningLookupTable["subtables"][number]["coverage"] } coverageTable
+     * 
      */
-    expandCoverage: function(coverageTable) {
+    expandCoverage (coverageTable)
+    {
         if (coverageTable.format === 1) {
             return coverageTable.glyphs;
         } else {
@@ -338,8 +378,13 @@ Layout.prototype = {
             }
             return glyphs;
         }
-    }
+    } ;
 
-};
+}
+
+/**
+ * @typedef {KTScript } XScript
+ * 
+ */
 
 export default Layout;

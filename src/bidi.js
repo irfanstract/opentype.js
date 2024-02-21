@@ -3,6 +3,8 @@
  * the corresponding layout rules.
  */
 
+import { athrow } from './athrow.mjs';
+
 import Tokenizer from './tokenizer.js';
 import FeatureQuery from './features/featureQuery.js';
 import arabicWordCheck from './features/arab/contextCheck/arabicWord.js';
@@ -18,13 +20,21 @@ import thaiRequiredLigatures from './features/thai/thaiRequiredLigatures.js';
 import unicodeVariationSequenceCheck from './features/unicode/contextCheck/variationSequenceCheck.js';
 import unicodeVariationSequences from './features/unicode/variationSequences.js';
 
+/** @typedef {import("./font.js").default } Font */
+
+/**
+ * @typedef {string} BdWritingSystemId
+ * 
+ */
+
 /**
  * Create Bidi. features
- * @param {string} baseDir text base direction. value either 'ltr' or 'rtl'
+ * @param {string} [baseDirArg] text base direction. value either 'ltr' or 'rtl'
  */
-function Bidi(baseDir) {
-    this.baseDir = baseDir || 'ltr';
+function Bidi(baseDirArg ) {
+    this.baseDir = baseDirArg ?? 'ltr';
     this.tokenizer = new Tokenizer();
+    /** @type {{ [s: string]: KTFeature["tags"] ; }} */
     this.featuresTags = {};
 }
 
@@ -51,6 +61,9 @@ Bidi.prototype.contextChecks = ({
 
 /**
  * Register arabic word check
+ * 
+ * @param {string} checkId
+ * @this {Bidi }
  */
 function registerContextChecker(checkId) {
     const check = this.contextChecks[`${checkId}Check`];
@@ -62,6 +75,8 @@ function registerContextChecker(checkId) {
 /**
  * Perform pre tokenization procedure then
  * tokenize text input
+ * 
+ * @this {Bidi }
  */
 function tokenizeText() {
     registerContextChecker.call(this, 'latinWord');
@@ -69,12 +84,20 @@ function tokenizeText() {
     registerContextChecker.call(this, 'arabicSentence');
     registerContextChecker.call(this, 'thaiWord');
     registerContextChecker.call(this, 'unicodeVariationSequence');
-    return this.tokenizer.tokenize(this.text);
+    return this.tokenizer.tokenize((
+        this.text || (
+            // TODO
+            ""
+        )
+    ));
 }
 
 /**
  * Reverse arabic sentence layout
+ * 
  * TODO: check base dir before applying adjustments - priority low
+ * 
+ * @this {Bidi }
  */
 function reverseArabicSentences() {
     const ranges = this.tokenizer.getContextRanges('arabicSentence');
@@ -91,34 +114,35 @@ function reverseArabicSentences() {
 
 /**
  * Register supported features tags
- * @param {script} script script tag
- * @param {Array} tags features tags list
+ * @param {BdWritingSystemId} script script tag
+ * @param {KTFeature["tags"] } tags features tags list
  */
 Bidi.prototype.registerFeatures = function (script, tags) {
     const supportedTags = tags.filter(
-        tag => this.query.supports({script, tag})
+        tag => (this.query?.supports({script, tag}) || false )
     );
     if (!Object.prototype.hasOwnProperty.call(this.featuresTags, script)) {
         this.featuresTags[script] = supportedTags;
     } else {
-        this.featuresTags[script] =
-        this.featuresTags[script].concat(supportedTags);
+        this.featuresTags[script] = (
+            [...(this.featuresTags[script] ?? [] ), ...supportedTags ]
+        ) ;
     }
 };
 
 /**
  * Apply GSUB features
- * @param {Array} tagsList a list of features tags
- * @param {string} script a script tag
  * @param {Font} font opentype font instance
+ * @param {KTFeature[] } features
  */
 Bidi.prototype.applyFeatures = function (font, features) {
     if (!font) throw new Error(
         'No valid font was provided to apply features'
     );
-    if (!this.query) this.query = new FeatureQuery(font);
-    for (let f = 0; f < features.length; f++) {
-        const feature = features[f];
+    if (!this.query) {
+        this.query = new FeatureQuery(font);
+    }
+    for (const feature of features ) {
         if (!this.query.supports({script: feature.script})) continue;
         this.registerFeatures(feature.script, feature.tags);
     }
@@ -136,6 +160,8 @@ Bidi.prototype.registerModifier = function (modifierId, condition, modifier) {
 
 /**
  * Check if 'glyphIndex' is registered
+ * 
+ * @this {Bidi}
  */
 function checkGlyphIndexStatus() {
     if (this.tokenizer.registeredModifiers.indexOf('glyphIndex') === -1) {
@@ -148,6 +174,8 @@ function checkGlyphIndexStatus() {
 
 /**
  * Apply arabic presentation forms features
+ * 
+ * @this {Bidi}
  */
 function applyArabicPresentationForms() {
     const script = 'arab';
@@ -162,6 +190,8 @@ function applyArabicPresentationForms() {
 
 /**
  * Apply required arabic ligatures
+ * 
+ * @this {Bidi}
  */
 function applyArabicRequireLigatures() {
     if (!this.hasFeatureEnabled('arab', 'rlig')) return;
@@ -175,6 +205,8 @@ function applyArabicRequireLigatures() {
 
 /**
  * Apply required arabic ligatures
+ * 
+ * @this {Bidi}
  */
 function applyLatinLigatures() {
     if (!this.hasFeatureEnabled('latn', 'liga')) return;
@@ -186,6 +218,10 @@ function applyLatinLigatures() {
     }
 }
 
+/**
+ * 
+ * @this {Bidi}
+ */
 function applyUnicodeVariationSequences() {
     const ranges = this.tokenizer.getContextRanges('unicodeVariationSequence');
     for(let i = 0; i < ranges.length; i++) {
@@ -196,6 +232,8 @@ function applyUnicodeVariationSequences() {
 
 /**
  * Apply available thai features
+ * 
+ * @this {Bidi}
  */
 function applyThaiFeatures() {
     checkGlyphIndexStatus.call(this);
@@ -243,8 +281,8 @@ Bidi.prototype.applyFeaturesToContexts = function () {
 
 /**
  * Check whatever feature is successfully enabled for a script
- * @param {string} script
- * @param {string} tag feature name
+ * @param {BdWritingSystemId} script
+ * @param {KTFeature["tags"][number] } tag feature name
  * @returns {boolean}
  */
 Bidi.prototype.hasFeatureEnabled = function(script, tag) {
@@ -275,7 +313,7 @@ Bidi.prototype.getBidiText = function (text) {
 
 /**
  * Get the current state index of each token
- * @param {text} text an input text
+ * @param {string} text an input text
  */
 Bidi.prototype.getTextGlyphs = function (text) {
     this.processText(text);

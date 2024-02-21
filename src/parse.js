@@ -1,44 +1,85 @@
 // Parsing utility functions
 
+import { athrow, assertionFail } from './athrow.mjs';
+import { reiterableBy } from './itertools.mjs';
+
 import check from './check.js';
 
-// Retrieve an unsigned byte from the DataView.
+/**
+ * @callback IGetDataViewItem
+ * 
+ * @param {DataView} dataView
+ * @param {Array<any>["length"] } offset
+ * 
+ * @returns {number }
+ * 
+ */
+
+/**
+ * Retrieve an unsigned byte from the DataView.
+ * 
+ * @type {IGetDataViewItem }
+ */
 function getByte(dataView, offset) {
     return dataView.getUint8(offset);
 }
 
-// Retrieve an unsigned 16-bit short from the DataView.
-// The value is stored in big endian.
+/**
+ * Retrieve an unsigned 16-bit short from the DataView.
+ * The value is stored in big endian.
+ * 
+ * @type {IGetDataViewItem }
+ */
 function getUShort(dataView, offset) {
     return dataView.getUint16(offset, false);
 }
 
-// Retrieve a signed 16-bit short from the DataView.
-// The value is stored in big endian.
+/**
+ * Retrieve a signed 16-bit short from the DataView.
+ * The value is stored in big endian.
+ * 
+ * @type {IGetDataViewItem }
+ */
 function getShort(dataView, offset) {
     return dataView.getInt16(offset, false);
 }
 
+/**
+ * 
+ * @type {IGetDataViewItem }
+ */
 function getUInt24(dataView, offset) {
     return (dataView.getUint16(offset) << 8) + dataView.getUint8(offset + 2);
 }
 
-// Retrieve an unsigned 32-bit long from the DataView.
-// The value is stored in big endian.
+/**
+ * Retrieve an unsigned 32-bit long from the DataView.
+ * The value is stored in big endian.
+ * 
+ * @type {IGetDataViewItem }
+ */
 function getULong(dataView, offset) {
     return dataView.getUint32(offset, false);
 }
 
-// Retrieve a 32-bit signed fixed-point number (16.16) from the DataView.
-// The value is stored in big endian.
+/**
+ * Retrieve a 32-bit signed fixed-point number (16.16) from the DataView.
+ * The value is stored in big endian.
+ * 
+ * @type {IGetDataViewItem }
+ */
 function getFixed(dataView, offset) {
     const decimal = dataView.getInt16(offset, false);
     const fraction = dataView.getUint16(offset + 2, false);
     return decimal + fraction / 65535;
 }
 
-// Retrieve a 4-character tag from the DataView.
-// Tags are used to identify tables.
+/**
+ * Retrieve a 4-character tag from the DataView.
+ * Tags are used to identify tables.
+ * 
+ * @type {(...args: Parameters<IGetDataViewItem>) => string }
+ */
 function getTag(dataView, offset) {
     let tag = '';
     for (let i = offset; i < offset + 4; i += 1) {
@@ -48,8 +89,14 @@ function getTag(dataView, offset) {
     return tag;
 }
 
-// Retrieve an offset from the DataView.
-// Offsets are 1 to 4 bytes in length, depending on the offSize argument.
+/**
+ * Retrieve an offset from the DataView.
+ * Offsets are 1 to 4 bytes in length, depending on the offSize argument.
+ * 
+ * @param {DataView} dataView
+ * @param {Uint32Array["length"] } offset
+ * @param {Uint32Array["length"] } offSize
+ */
 function getOffset(dataView, offset, offSize) {
     let v = 0;
     for (let i = 0; i < offSize; i += 1) {
@@ -60,7 +107,13 @@ function getOffset(dataView, offset, offSize) {
     return v;
 }
 
-// Retrieve a number of bytes from start offset to the end offset from the DataView.
+/**
+ * Retrieve a number of bytes from start offset to the end offset from the DataView.
+ * 
+ * @param {DataView} dataView
+ * @param {Uint32Array["length"] } startOffset
+ * @param {Uint32Array["length"] } endOffset
+ */
 function getBytes(dataView, startOffset, endOffset) {
     const bytes = [];
     for (let i = startOffset; i < endOffset; i += 1) {
@@ -70,7 +123,11 @@ function getBytes(dataView, startOffset, endOffset) {
     return bytes;
 }
 
-// Convert the list of bytes to a string.
+/**
+ * Convert the list of bytes to a string.
+ * 
+ * @type {(c: ReadonlyArray<number>) => string }
+ */
 function bytesToString(bytes) {
     let s = '';
     for (let i = 0; i < bytes.length; i += 1) {
@@ -96,44 +153,67 @@ const masks = {
     WORD_DELTA_COUNT_MASK: 0x7FFF
 };
 
-// A stateful parser that changes the offset whenever a value is retrieved.
-// The data is a DataView.
+/**
+ * A stateful parser that changes the offset whenever a value is retrieved.
+ * The data is a DataView.
+ * 
+ * @param {DataView} data
+ * @param {Array<any>["length"] } offset
+ */
 function Parser(data, offset) {
     this.data = data;
     this.offset = offset;
     this.relativeOffset = 0;
 }
 
+/**
+ * @callback IParseAndReturnNumber
+ * 
+ * @returns {number }
+ * 
+ */
+
+/** @type {() => ReturnType<DataView["getUint8"] > } */
 Parser.prototype.parseByte = function() {
     const v = this.data.getUint8(this.offset + this.relativeOffset);
     this.relativeOffset += 1;
     return v;
 };
 
+/** @type {() => ReturnType<DataView["getInt8"] > } */
 Parser.prototype.parseChar = function() {
     const v = this.data.getInt8(this.offset + this.relativeOffset);
     this.relativeOffset += 1;
     return v;
 };
 
+/** @type {IParseAndReturnNumber } */
 Parser.prototype.parseCard8 = Parser.prototype.parseByte;
 
+/** @type {() => ReturnType<DataView["getUint16"] > } */
 Parser.prototype.parseUShort = function() {
     const v = this.data.getUint16(this.offset + this.relativeOffset);
     this.relativeOffset += 2;
     return v;
 };
 
+/** @type {IParseAndReturnNumber } */
 Parser.prototype.parseCard16 = Parser.prototype.parseUShort;
+
+/** @type {IParseAndReturnNumber } */
 Parser.prototype.parseSID = Parser.prototype.parseUShort;
+
+/** @type {IParseAndReturnNumber } */
 Parser.prototype.parseOffset16 = Parser.prototype.parseUShort;
 
+/** @type {() => ReturnType<DataView["getInt16"] > } */
 Parser.prototype.parseShort = function() {
     const v = this.data.getInt16(this.offset + this.relativeOffset);
     this.relativeOffset += 2;
     return v;
 };
 
+/** @type {() => ReturnType<DataView["getInt16"] > } */
 Parser.prototype.parseF2Dot14 = function() {
     const v = this.data.getInt16(this.offset + this.relativeOffset) / 16384;
     this.relativeOffset += 2;
@@ -141,26 +221,31 @@ Parser.prototype.parseF2Dot14 = function() {
 };
 
 
+/** @type {() => ReturnType<typeof getUInt24 > } */
 Parser.prototype.parseUInt24 = function() {
     const v = getUInt24(this.data, this.offset + this.relativeOffset);
     this.relativeOffset += 3;
     return v;
 };
 
+/** @type {() => ReturnType<typeof getULong > } */
 Parser.prototype.parseULong = function() {
     const v = getULong(this.data, this.offset + this.relativeOffset);
     this.relativeOffset += 4;
     return v;
 };
 
+/** @type {IParseAndReturnNumber } */
 Parser.prototype.parseOffset32 = Parser.prototype.parseULong;
 
+/** @type {IParseAndReturnNumber } */
 Parser.prototype.parseFixed = function() {
     const v = getFixed(this.data, this.offset + this.relativeOffset);
     this.relativeOffset += 4;
     return v;
 };
 
+/** @type {(len: number) => string } */
 Parser.prototype.parseString = function(length) {
     const dataView = this.data;
     const offset = this.offset + this.relativeOffset;
@@ -177,11 +262,15 @@ Parser.prototype.parseTag = function() {
     return this.parseString(4);
 };
 
-// LONGDATETIME is a 64-bit integer.
-// JavaScript and unix timestamps traditionally use 32 bits, so we
-// only take the last 32 bits.
-// + Since until 2038 those bits will be filled by zeros we can ignore them.
-// FIXME: at some point we need to support dates >2038 using the full 64bit
+/**
+ * LONGDATETIME is a 64-bit integer.
+ * JavaScript and unix timestamps traditionally use 32 bits, so we
+ * only take the last 32 bits.
+ * + Since until 2038 those bits will be filled by zeros we can ignore them.
+ * 
+ * FIXME: at some point we need to support dates >2038 using the full 64bit
+ * 
+ */
 Parser.prototype.parseLongDateTime = function() {
     let v = getULong(this.data, this.offset + this.relativeOffset + 4);
     // Subtract seconds between 01/01/1904 and 01/01/1970
@@ -203,6 +292,7 @@ Parser.prototype.parseVersion = function(minorBase) {
     return major + minor / minorBase / 10;
 };
 
+/** @type {(...args: [keyof (typeof typeOffsets), number] ) => void } */
 Parser.prototype.skip = function(type, amount) {
     if (amount === undefined) {
         amount = 1;
@@ -213,7 +303,17 @@ Parser.prototype.skip = function(type, amount) {
 
 ///// Parsing lists and records ///////////////////////////////
 
+/**
+ * @callback IParseListByCount
+ * 
+ * @param {number } count
+ * 
+ * @returns {any[] }
+ * 
+ */
+
 // Parse a list of 32 bit unsigned integers.
+/** @type {IParseListByCount } */
 Parser.prototype.parseULongList = function(count) {
     if (count === undefined) { count = this.parseULong(); }
     const offsets = new Array(count);
@@ -230,6 +330,7 @@ Parser.prototype.parseULongList = function(count) {
 
 // Parse a list of 16 bit unsigned integers. The length of the list can be read on the stream
 // or provided as an argument.
+/** @type {IParseListByCount } */
 Parser.prototype.parseOffset16List =
 Parser.prototype.parseUShortList = function(count) {
     if (count === undefined) { count = this.parseUShort(); }
@@ -246,6 +347,7 @@ Parser.prototype.parseUShortList = function(count) {
 };
 
 // Parses a list of 16 bit signed integers.
+/** @type {IParseListByCount } */
 Parser.prototype.parseShortList = function(count) {
     const list = new Array(count);
     const dataView = this.data;
@@ -260,6 +362,7 @@ Parser.prototype.parseShortList = function(count) {
 };
 
 // Parses a list of bytes.
+/** @type {IParseListByCount } */
 Parser.prototype.parseByteList = function(count) {
     const list = new Array(count);
     const dataView = this.data;
@@ -276,54 +379,88 @@ Parser.prototype.parseByteList = function(count) {
  * Parse a list of items.
  * Record count is optional, if omitted it is read from the stream.
  * itemCallback is one of the Parser methods.
+ * 
+ * @template Item
+ * @param {(this: this) => Item } itemCallback
+ * @param {number} count
+ * 
  */
 Parser.prototype.parseList = function(count, itemCallback) {
     if (!itemCallback) {
+        // TODO - why this assignment ???
         itemCallback = count;
         count = this.parseUShort();
     }
-    const list = new Array(count);
-    for (let i = 0; i < count; i++) {
-        list[i] = itemCallback.call(this);
-    }
-    return list;
+    const this1 = this ;
+
+    return [...reiterableBy((function* () {
+      for (let i = 0; i < count; i++) {
+        yield itemCallback.call(this1) ;
+      }
+    }) )] ;
 };
 
+/**
+ * Parse a list of items.
+ * Record count is optional, if omitted it is read from the stream.
+ * itemCallback is one of the Parser methods.
+ * 
+ * @template Item
+ * @param {(this: this) => Item } itemCallback
+ * @param {number} count
+ * 
+ */
 Parser.prototype.parseList32 = function(count, itemCallback) {
     if (!itemCallback) {
+        // TODO - why this assignment ???
         itemCallback = count;
         count = this.parseULong();
     }
-    const list = new Array(count);
-    for (let i = 0; i < count; i++) {
-        list[i] = itemCallback.call(this);
-    }
-    return list;
+    const this1 = this ;
+
+    return [...reiterableBy((function* () {
+      for (let i = 0; i < count; i++) {
+        yield itemCallback.call(this1) ;
+      }
+    }) )] ;
 };
+
+/** @typedef {(([typeof Parser] extends [infer CS] ? CS : never ) extends infer CS10 ? ({ [k in keyof CS10]: [k, CS10[k]] ; }[keyof CS10] extends infer CS1 ? CS1 : never) : never) } URTPairPlus */
+/** @typedef {(URTPairPlus extends infer T ? (T extends Readonly<[{}, Function] & [{}, string]> ? never : T ) : never )[1] } URT */
 
 /**
  * Parse a list of records.
  * Record count is optional, if omitted it is read from the stream.
  * Example of recordDescription: { sequenceIndex: Parser.uShort, lookupListIndex: Parser.uShort }
+ * 
+ * @param {{ [key: string]: URT ; }} recordDescription
+ * @param {Array<{}>["length"] } count
+ * 
  */
 Parser.prototype.parseRecordList = function(count, recordDescription) {
     // If the count argument is absent, read it in the stream.
     if (!recordDescription) {
+        // TODO
         recordDescription = count;
         count = this.parseUShort();
     }
-    const records = new Array(count);
+
+    const this1 = this ;
+    
     const fields = Object.keys(recordDescription);
-    for (let i = 0; i < count; i++) {
-        const rec = {};
-        for (let j = 0; j < fields.length; j++) {
-            const fieldName = fields[j];
-            const fieldType = recordDescription[fieldName];
-            rec[fieldName] = fieldType.call(this);
-        }
-        records[i] = rec;
-    }
-    return records;
+    
+    return [...reiterableBy((function* () {
+      for (let i = 0; i < count; i++) {
+        yield Object.fromEntries((
+          //
+          reiterableBy(function* () {
+            for (const [fieldName, fieldType] of Object.entries(recordDescription ) ) {
+              yield /** @satisfies {[{}, {}]} */ ([fieldName, fieldType.call(this1) ]) ;
+            }
+          } )
+        )) ;
+      }
+    }) )] ;
 };
 
 Parser.prototype.parseRecordList32 = function(count, recordDescription) {
@@ -466,9 +603,14 @@ Parser.prototype.parseListOfLists = function(itemCallback) {
 
 ///// Complex tables parsing //////////////////////////////////
 
-// Parse a coverage table in a GSUB, GPOS or GDEF table.
-// https://www.microsoft.com/typography/OTSPEC/chapter2.htm
-// parser.offset must point to the start of the table containing the coverage.
+/**
+ * Parse a coverage table in a GSUB, GPOS or GDEF table.
+ * https://www.microsoft.com/typography/OTSPEC/chapter2.htm
+ * parser.offset must point to the start of the table containing the coverage.
+ * 
+ * @returns {KTCoverageTableImpl }
+ * 
+ */
 Parser.prototype.parseCoverage = function() {
     const startOffset = this.offset + this.relativeOffset;
     const format = this.parseUShort();
@@ -492,7 +634,7 @@ Parser.prototype.parseCoverage = function() {
             ranges: ranges
         };
     }
-    throw new Error('0x' + startOffset.toString(16) + ': Coverage format must be 1 or 2.');
+    throw new Error(`0x${startOffset.toString(16)}: Coverage format must be 1 or 2.`);
 };
 
 // Parse a Class Definition Table in a GSUB, GPOS or GDEF table.
@@ -526,41 +668,28 @@ Parser.prototype.parseClassDef = function() {
 ///// Static methods ///////////////////////////////////
 // These convenience methods can be used as callbacks and should be called with "this" context set to a Parser instance.
 
-Parser.list = function(count, itemCallback) {
-    return function() {
-        return this.parseList(count, itemCallback);
-    };
-};
+const RFRTK = /** @type {<const k extends keyof Parser>(key: k ) => (...args: Parameters<Parser[k] >) => (this: Parser) => ReturnType<Parser[k] > } */ (k) => (...args) => {
+    return function () {
+        return this[k](...args ) ;
+    } ;
+} ;
 
-Parser.list32 = function(count, itemCallback) {
-    return function() {
-        return this.parseList32(count, itemCallback);
-    };
-};
+/**
+ * @typedef {F extends (<T>(...args: any) => any) ? ((...args: Parameters<F<T> >) => (this: Parser) => ReturnType<F<T> > ) : ((...args: Parameters<F >) => (this: Parser) => ReturnType<F > ) } RFRTK_DEFERRED<F>
+ * @template {(...args: any) => any } F
+ */
 
-Parser.recordList = function(count, recordDescription) {
-    return function() {
-        return this.parseRecordList(count, recordDescription);
-    };
-};
+Parser.list = RFRTK("parseList") ;
 
-Parser.recordList32 = function(count, recordDescription) {
-    return function() {
-        return this.parseRecordList32(count, recordDescription);
-    };
-};
+Parser.list32 = RFRTK("parseList32") ;
 
-Parser.pointer = function(description) {
-    return function() {
-        return this.parsePointer(description);
-    };
-};
+Parser.recordList = RFRTK("parseRecordList");
 
-Parser.pointer32 = function(description) {
-    return function() {
-        return this.parsePointer32(description);
-    };
-};
+Parser.recordList32 = RFRTK("parseRecordList32");
+
+Parser.pointer = RFRTK("parsePointer");
+
+Parser.pointer32 = RFRTK("parsePointer32");
 
 Parser.tag = Parser.prototype.parseTag;
 Parser.byte = Parser.prototype.parseByte;

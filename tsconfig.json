@@ -1,0 +1,100 @@
+{
+  "compilerOptions": {
+
+    /* 
+     * SETTINGS WHICH AFFECTS LINKAGE !!!
+     */
+
+    "module": "ESNext",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    // "jsx": "react-jsx" ,
+
+
+    /* 
+     * BASE PATHS - 
+     * all these generally no effect, 
+     * EXCEPT IF USING PREAMBLES LIKE `tsconfig-paths`, IN WHICH CASE AFFECTS LINKAGE
+     */
+    
+    // "baseUrl": ".",
+    "moduleResolution": "bundler" /* https://github.com/microsoft/TypeScript/pull/51669 */,
+    "forceConsistentCasingInFileNames": true,
+
+
+    /* 
+     * SETTINGS WHICH DOESN'T AFFECT LINKAGE !!!
+     */
+    
+    /* post-vendoring paths settings */
+
+    "resolveJsonModule": true,
+    /* https://github.com/microsoft/TypeScript/pull/51669 */
+    /* we already have `noEmit: true` here and the runtime uses alternative compiler/transpiler */
+    "allowImportingTsExtensions": true,
+    "allowJs": true,
+
+    /* these three does not affect linkage, yet does affect generated code */
+
+    "target": "ESNext",
+    "useDefineForClassFields": true,
+    "isolatedModules": true,
+    "noEmit": true /* using TS-Node or ESBuild, never the CLI `tsc` - https://github.com/microsoft/TypeScript/pull/51669 */ ,
+    
+    /* these three is at the heart of typechecking */
+
+    "strict": true,
+    "noImplicitAny": true, // '"strict": true ' did not enforce this
+    // without this
+    // the type-system would be unsound as
+    // `tsc` would pretend indexed array items always exists which cannot be proven.
+    // i believe `tsc init` should have done this.
+    "noUncheckedIndexedAccess": true, 
+    // more likely a bug, than not
+    "noFallthroughCasesInSwitch": true,
+    
+    /* *reference libs* */
+    
+    "lib": [
+      "DOM", 
+      "DOM.Iterable", 
+      "ESNext" ,
+    ],
+    "skipLibCheck": true,
+    // "checkJs": false,
+    "checkJs": true,
+    "incremental": true,
+    "jsx": "preserve",
+    "plugins": [
+      // {
+      //   "name": "next"
+      // } ,
+    ] ,
+    
+    
+    /* https://stackoverflow.com/a/57273280 . */
+    "paths": {
+      // "eonx-document-ui/*": ["./packages/eonx-document-ui/*"] ,
+    } ,
+    
+    
+  },
+  "include": [
+    // "packages" ,
+    "src" ,
+    // ".next/types/**/*.ts" ,
+  ],
+  "references": [
+  ] ,
+
+  "ts-node": {
+
+    "esm": true,
+    "transpileOnly": true,
+    
+  } ,
+  "exclude": [
+    "node_modules",
+  ],
+
+}

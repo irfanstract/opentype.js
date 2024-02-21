@@ -1,44 +1,84 @@
 // Table metadata
 
+/*!
+ * 
+ * contrib note:
+ * 
+ * - the original code made those usages of `concat` of `Array` ;
+ *   TS typechecker was unable to relate/connect those desc to the base-class, {@link TableFieldDescriptorByTnV },
+ *   which would risk breakage from "Rename" refactorings,
+ *   so
+ *   I replaced those `concat` calls with the spread-operator (eg in `[item, item, ...items ]`)
+ * 
+ * - tried to replace ES2009-style `class`es with ES2015-style ones, but
+ *   that won't play well with (devel, contrib) merges
+ * 
+ */
+
+
+
+
+
+import { athrow, asNonNull } from "./athrow.mjs";
 import check from './check.js';
+import { strConcatOf2, } from "./athrow.mjs";
+
+
+
+
+
 import { encode, sizeOf } from './types.js';
 
-/**
- * @exports opentype.Table
- * @class
- * @param {string} tableName
- * @param {Array} fields
- * @param {Object} options
- * @constructor
- */
-function Table(tableName, fields, options) {
+
+
+class Table
+{
+  
+  /**
+   * @exports opentype.Table 
+   * @param {string} tableName
+   * @param {TableFieldDescriptorByTnV<string, unknown > [] } fields
+   * @param {{ [key: string]: unknown ; }} [options] 
+   */
+  constructor (tableName, fields, options)
+  {
+    /** @type {<T> (value: T) => asserts value is (T & { [key: string]: unknown ; }) } */ const AS_INDEXED = (v => {}) ;
+    AS_INDEXED(this) ;
+
     if (fields && fields.length) {
-        for (let i = 0; i < fields.length; i += 1) {
-            const field = fields[i];
-            this[field.name] = field.value;
-        }
+      Object.assign(this, (
+        Object.fromEntries(fields.map(fld => [fld.name, fld.value] ) )
+      ) ) ;
     }
 
     this.tableName = tableName;
     this.fields = fields;
     if (options) {
-        const optionKeys = Object.keys(options);
-        for (let i = 0; i < optionKeys.length; i += 1) {
-            const k = optionKeys[i];
-            const v = options[k];
-            if (this[k] !== undefined) {
-                this[k] = v;
-            }
-        }
+      Object.assign(this, options ) ;
     }
+
+    // TODO
+    /** @type {number=} */
+    this.format ;
+    /** @type {number=} */
+    this.coverageFormat ;
+  }
 }
 
 /**
+ * {@link Table }, refined according to the {@link TableFieldDescriptorByNameField}s passed
+ * 
+ * @type {new <T extends string>(tableName: string, f: TableFieldDescriptorByNameField<T>[] ) => Table & { [k in T]: {}, } }
+ */
+// @ts-ignore
+const TableKky = Table ;
+
+/**
  * Encodes the table and returns an array of bytes
- * @return {Array}
+ * @return {any[] }
  */
 Table.prototype.encode = function() {
-    return encode.TABLE(this);
+  return encode.TABLE(this);
 };
 
 /**
@@ -46,85 +86,181 @@ Table.prototype.encode = function() {
  * @return {number}
  */
 Table.prototype.sizeOf = function() {
-    return sizeOf.TABLE(this);
+  return sizeOf.TABLE(this);
 };
 
 /**
  * @private
+ * 
  */
-function ushortList(itemName, list, count) {
+const ushortList = (
+  /**
+   * 
+   * @satisfies {<T extends {}, const nm extends string>(...args: [...[expectedTbName: nm, srcAsArray: readonly T[], count ?: number] ] ) => ({} )[] }
+   * 
+   */
+  (function ushortListImpl(itemName, list, count) {
     if (count === undefined) {
         count = list.length;
     }
+    
+    /** @typedef {(typeof list )[number] } T */
+    
+    // /** @type {ReturnType<typeof ushortListImpl<T> >[number] [] } */
+    /** @type {(TableFieldDescriptorByNmAndTypeAndValue<`${typeof itemName }${"Count" | number }` , "USHORT" , T | (typeof count) > ) [] } */
     const fields = new Array(list.length + 1);
-    fields[0] = {name: itemName + 'Count', type: 'USHORT', value: count};
+    fields[0] = {name: strConcatOf2(itemName, count), type: 'USHORT', value: count};
     for (let i = 0; i < list.length; i++) {
-        fields[i + 1] = {name: itemName + i, type: 'USHORT', value: list[i]};
+      fields[i + 1] = {name: strConcatOf2(itemName, i), type: 'USHORT', value: list[i] ?? athrow() };
     }
     return fields;
-}
+  })
+) ;
 
 /**
  * @private
+ * @type {(
+ * <T>(...args: [...[expectedTbName: string, srcAsArray: readonly T[]] , (item: T, i: number) => any ] )
+ * => (TableFieldDescriptorByTnV<'USHORT' | 'TABLE' | 'TAG', any > )[]
+ * )}
  */
 function tableList(itemName, records, itemCallback) {
     const count = records.length;
-    const fields = new Array(count + 1);
-    fields[0] = {name: itemName + 'Count', type: 'USHORT', value: count};
-    for (let i = 0; i < count; i++) {
-        fields[i + 1] = {name: itemName + i, type: 'TABLE', value: itemCallback(records[i], i)};
-    }
+
+    const fields = /** @satisfies {(TableFieldDescriptorByTnV<'USHORT' | 'TABLE' | 'TAG', any > ) [] } */ ([
+      {name: itemName + 'Count', type: 'USHORT', value: count} ,
+      .../** @satisfies {(TableFieldDescriptorByTnV<'USHORT' | 'TABLE' | 'TAG', any > ) [] } */ (
+        records
+        .map((rec, i) => (
+          {name: itemName + i, type: 'TABLE', value: itemCallback(rec, i)}
+        ))
+      ) ,
+    ]);
     return fields;
 }
 
 /**
  * @private
  */
-function recordList(itemName, records, itemCallback) {
+const recordList = (
+  /**
+   * 
+   * @satisfies {(
+   * <T, const tbName extends string>(...args: [...[expectedTbName: tbName, srcAsArray: readonly T[]] , (item: T, i: number) => TableFieldDescriptorByNmAndTypeAndValue<string, 'TAG' | 'TABLE' | 'USHORT', any >[] ] )
+   * => ({} )[] 
+   * )}
+   */
+  (function (itemName, records, itemCallback) {
     const count = records.length;
+
+    /** @typedef {ReturnType<typeof itemCallback>[number] } ReturnedEachRec */
+
+    /** @type {(TableFieldDescriptorByNmAndTypeAndValue<`${typeof itemName}Count` | ReturnedEachRec["name"] , ReturnedEachRec["type"] , ReturnedEachRec["value"] > ) [] } */
     let fields = [];
-    fields[0] = {name: itemName + 'Count', type: 'USHORT', value: count};
+    fields[0] = {name: strConcatOf2(itemName, count), type: 'USHORT', value: count};
     for (let i = 0; i < count; i++) {
-        fields = fields.concat(itemCallback(records[i], i));
+        fields = [...fields, ...itemCallback(records[i] ?? athrow(), i) ] ;
     }
     return fields;
-}
+  } )
+) ;
+
+/**
+ * @typedef {{name: Name, type: Type, value: Value } } TableFieldDescriptorByNmAndTypeAndValue
+ * @template {string} Name
+ * @template {string} Type
+ * @template Value
+ * 
+ */
+
+/**
+ * @typedef {TableFieldDescriptorByNmAndTypeAndValue<string, Type, Value> } TableFieldDescriptorByTnV
+ * 
+ * @template {string} Type
+ * @template Value
+ * 
+ */
+const TableFieldDescriptorByTnV = {} ;
+
+/**
+ * @typedef {TableFieldDescriptorByNmAndTypeAndValue<Name, string, unknown> } TableFieldDescriptorByNameField
+ * @template {string} Name
+ * 
+ */
+
+const describeTableFieldDescriptor1 = /** @satisfies {<const nme, const value, const tpe extends string>(e: TableFieldDescriptorByNmAndTypeAndValue<nme, tpe, value> ) => typeof e } */ (
+  function (e) {
+    return e ;
+  }
+) ;
+
+export {
+  TableFieldDescriptorByTnV,
+  describeTableFieldDescriptor1,
+} ;
+
+
 
 // Common Layout Tables
 
-/**
- * @exports opentype.Coverage
- * @class
- * @param {opentype.Table}
- * @constructor
- * @extends opentype.Table
- */
-function Coverage(coverageTable) {
-    if (coverageTable.format === 1) {
-        Table.call(this, 'coverageTable',
-            [{name: 'coverageFormat', type: 'USHORT', value: 1}]
-                .concat(ushortList('glyph', coverageTable.glyphs))
-        );
-    } else if (coverageTable.format === 2) {
-        Table.call(this, 'coverageTable',
-            [{name: 'coverageFormat', type: 'USHORT', value: 2}]
-                .concat(recordList('rangeRecord', coverageTable.ranges, function(RangeRecord, i) {
-                    return [
-                        {name: 'startGlyphID' + i, type: 'USHORT', value: RangeRecord.start},
-                        {name: 'endGlyphID' + i, type: 'USHORT', value: RangeRecord.end},
-                        {name: 'startCoverageIndex' + i, type: 'USHORT', value: RangeRecord.index},
-                    ];
-                }))
-        );
-    } else {
-        check.assert(false, 'Coverage format must be 1 or 2.');
-    }
-}
-Coverage.prototype = Object.create(Table.prototype);
-Coverage.prototype.constructor = Coverage;
+/* a template for declaring these `YyyTable`s */
+// /** @type {new (...args: ConstructorParameters<typeof Table>) => (Table) } */
+// const SbTable = Table ;
 
-function ScriptList(scriptListTable) {
-    Table.call(this, 'scriptListTable',
+/** @type {new (...args: ConstructorParameters<typeof Table>) => (Table & KTCoverageTableFmts1[1 | 2] ) } */
+const CTableBase = Table ;
+// /** @type {new (...args: ConstructorParameters<typeof Table>) => (Table & KTCoverageTableFmts1[1 | 2] ) } CTable */
+
+/**
+ * 
+ */
+class Coverage extends CTableBase
+{
+  /**
+   * 
+   * @class
+   * @param {Table & ( { format: 1 ; glyphs: any[] } | { format: 2 ; ranges: any[] } )} coverageTable
+   * 
+   */
+  constructor(coverageTable)
+  {
+    super('coverageTable', (
+      coverageTable.format === 1 ?
+      [{name: 'coverageFormat', type: 'USHORT', value: 1} , ... ushortList('glyph', coverageTable.glyphs) ]
+      :
+
+      coverageTable.format === 2 ?
+      [{name: 'coverageFormat', type: 'USHORT', value: 2} , ... recordList('rangeRecord', coverageTable.ranges, function(RangeRecord, i) {
+          return [
+              {name: 'startGlyphID' + i, type: 'USHORT', value: RangeRecord.start},
+              {name: 'endGlyphID' + i, type: 'USHORT', value: RangeRecord.end},
+              {name: 'startCoverageIndex' + i, type: 'USHORT', value: RangeRecord.index},
+          ];
+      }) ]
+      :
+
+      athrow(`[Coverage.new] only supporting format 1 or 2 - instead got ${coverageTable} .`)
+    ) ) ;
+  }
+}
+
+/** @type {new (...args: ConstructorParameters<typeof Table>) => (Table) } */
+const SlTableBase = Table ;
+
+/**
+ * 
+ * @class
+ */
+class ScriptList extends SlTableBase
+{
+  /**
+   * 
+   * @class
+   * @param {Table} scriptListTable
+   */  
+  constructor(scriptListTable)
+  {
+    super('scriptListTable',
         recordList('scriptRecord', scriptListTable, function(scriptRecord, i) {
             const script = scriptRecord.script;
             let defaultLangSys = script.defaultLangSys;
@@ -134,105 +270,157 @@ function ScriptList(scriptListTable) {
                 {name: 'script' + i, type: 'TABLE', value: new Table('scriptTable', [
                     {name: 'defaultLangSys', type: 'TABLE', value: new Table('defaultLangSys', [
                         {name: 'lookupOrder', type: 'USHORT', value: 0},
-                        {name: 'reqFeatureIndex', type: 'USHORT', value: defaultLangSys.reqFeatureIndex}]
-                        .concat(ushortList('featureIndex', defaultLangSys.featureIndexes)))}
-                ].concat(recordList('langSys', script.langSysRecords, function(langSysRecord, i) {
+                        {name: 'reqFeatureIndex', type: 'USHORT', value: defaultLangSys.reqFeatureIndex},
+                        ... ushortList('featureIndex', defaultLangSys.featureIndexes)]
+                    )} , ... recordList('langSys', script.langSysRecords, function(langSysRecord, i) {
                     const langSys = langSysRecord.langSys;
                     return [
                         {name: 'langSysTag' + i, type: 'TAG', value: langSysRecord.tag},
                         {name: 'langSys' + i, type: 'TABLE', value: new Table('langSys', [
                             {name: 'lookupOrder', type: 'USHORT', value: 0},
                             {name: 'reqFeatureIndex', type: 'USHORT', value: langSys.reqFeatureIndex}
-                        ].concat(ushortList('featureIndex', langSys.featureIndexes)))}
+                            ,
+                            ... ushortList('featureIndex', langSys.featureIndexes)
+                            ,
+                        ])},
                     ];
-                })))}
+                }) ])},
             ];
         })
     );
+  }
 }
-ScriptList.prototype = Object.create(Table.prototype);
-ScriptList.prototype.constructor = ScriptList;
 
-/**
- * @exports opentype.FeatureList
- * @class
- * @param {opentype.Table}
- * @constructor
- * @extends opentype.Table
- */
-function FeatureList(featureListTable) {
-    Table.call(this, 'featureListTable',
+class FeatureList extends Table
+{
+  /**
+   * 
+   * @class
+   * @param {Table} featureListTable
+   * @constructor
+   */
+  constructor(featureListTable)
+  {
+    super('featureListTable',
         recordList('featureRecord', featureListTable, function(featureRecord, i) {
             const feature = featureRecord.feature;
             return [
                 {name: 'featureTag' + i, type: 'TAG', value: featureRecord.tag},
                 {name: 'feature' + i, type: 'TABLE', value: new Table('featureTable', [
-                    {name: 'featureParams', type: 'USHORT', value: feature.featureParams},
-                ].concat(ushortList('lookupListIndex', feature.lookupListIndexes)))}
+                  {name: 'featureParams', type: 'USHORT', value: feature.featureParams},
+                  ...ushortList('lookupListIndex', feature.lookupListIndexes)
+                  ,
+                ])}
             ];
         })
     );
+  }
 }
-FeatureList.prototype = Object.create(Table.prototype);
-FeatureList.prototype.constructor = FeatureList;
+
+// TODO
+/**
+ * @typedef {{ [key: string]: (item: any, i: number) => any ; } } LookupListIngrSubtableMakers
+ * 
+ */
+
+/** @type {new (...args: ConstructorParameters<typeof Table>) => (Table) } */
+const LlTableBase = Table ;
 
 /**
- * @exports opentype.LookupList
+ * 
  * @class
- * @param {opentype.Table}
- * @param {Object}
- * @constructor
- * @extends opentype.Table
  */
-function LookupList(lookupListTable, subtableMakers) {
-    Table.call(this, 'lookupListTable', tableList('lookup', lookupListTable, function(lookupTable) {
-        let subtableCallback = subtableMakers[lookupTable.lookupType];
+class LookupList extends LlTableBase
+{
+  /**
+   * 
+   * @class
+   * @param {Table} lookupListTable
+   * @param {LookupListIngrSubtableMakers} subtableMakers
+   */
+  constructor(lookupListTable, subtableMakers)
+  {
+    super('lookupListTable', tableList('lookup', lookupListTable, function(lookupTable) {
+        let subtableCallback = subtableMakers[lookupTable.lookupType] ?? athrow(`[LookupList.new] [subtableCallback] nf`) ;
+
         check.assert(!!subtableCallback, 'Unable to write GSUB lookup type ' + lookupTable.lookupType + ' tables.');
         return new Table('lookupTable', [
             {name: 'lookupType', type: 'USHORT', value: lookupTable.lookupType},
             {name: 'lookupFlag', type: 'USHORT', value: lookupTable.lookupFlag}
-        ].concat(tableList('subtable', lookupTable.subtables, subtableCallback)));
+            ,
+            ...tableList('subtable', lookupTable.subtables, subtableCallback)
+            ,
+        ]);
     }));
+  }
 }
-LookupList.prototype = Object.create(Table.prototype);
-LookupList.prototype.constructor = LookupList;
+
+/** @typedef {{ format: 1 ; classes: number[] ; startGlyph: number ; } | { format: 2 ; ranges: { start: number, end: number ; }[] } } CdeTableD */
 
 /**
- * @exports opentype.ClassDef
  * @class
- * @param {opentype.Table}
- * @param {Object}
  * @constructor
- * @extends opentype.Table
  *
  * @see https://learn.microsoft.com/en-us/typography/opentype/spec/chapter2#class-definition-table
  */
-function ClassDef(classDefTable) {
-    if (classDefTable.format === 1) {
-        Table.call(this, 'classDefTable',
-            [
-                {name: 'classFormat', type: 'USHORT', value: 1},
-                {name: 'startGlyphID', type: 'USHORT', value: classDefTable.startGlyph}
-            ]
-                .concat(ushortList('glyph', classDefTable.classes))
-        );
-    } else if (classDefTable.format === 2) {
-        Table.call(this, 'classDefTable',
-            [{name: 'classFormat', type: 'USHORT', value: 2}]
-                .concat(recordList('rangeRecord', classDefTable.ranges, function(RangeRecord, i) {
-                    return [
-                        {name: 'startGlyphID' + i, type: 'USHORT', value: RangeRecord.start},
-                        {name: 'endGlyphID' + i, type: 'USHORT', value: RangeRecord.end},
-                        {name: 'class' + i, type: 'USHORT', value: RangeRecord.classId},
-                    ];
-                }))
-        );
-    } else {
-        check.assert(false, 'Class format must be 1 or 2.');
-    }
+class ClassDefImpl extends Table
+{
+  /**
+   * @exports opentype.ClassDef
+   * @class
+   * @param {( CdeTableD )} classDefTable
+   * @constructor
+   *
+   * @see https://learn.microsoft.com/en-us/typography/opentype/spec/chapter2#class-definition-table
+   */
+  constructor(classDefTable)
+  {
+    ;
+    super(
+    ...(() =>
+    { const args = /** @satisfies {ConstructorParameters<typeof Table> & { 0: 'classDefTable' } } */ (
+      classDefTable.format === 1 ? [
+          'classDefTable' ,
+          [
+            describeTableFieldDescriptor1({name: 'classFormat', type: 'USHORT', value: 1}),
+            describeTableFieldDescriptor1({name: 'startGlyphID', type: 'USHORT', value: classDefTable.startGlyph})
+            ,
+            ...ushortList('glyph', classDefTable.classes)
+            ,
+          ] ,
+      ] :
+  
+      classDefTable.format === 2 ? [
+        'classDefTable' ,
+          [
+            describeTableFieldDescriptor1({name: 'classFormat', type: 'USHORT', value: 2}),
+            ...recordList('rangeRecord', classDefTable.ranges, function(RangeRecord, i) {
+                return [
+                    describeTableFieldDescriptor1({name: /** @satisfies {`startGlyphID${typeof i}` } */ (`startGlyphID${i}`), type: 'USHORT', value: ( RangeRecord.start  ) , }),
+                    describeTableFieldDescriptor1({name: /** @satisfies {  `endGlyphID${typeof i}` } */ (  `endGlyphID${i}`), type: 'USHORT', value: ( RangeRecord.end    ) , }),
+                    describeTableFieldDescriptor1({name: /** @satisfies {       `class${typeof i}` } */ (       `class${i}`), type: 'USHORT', value: ( RangeRecord.classId) , }),
+                ];
+            }),
+          ] ,
+      ] :
+      
+      athrow(`[ClassDef.new] only supporting format 1 or 2 - instead got ${classDefTable} .`)
+    ) ; return args ; } )() ) ;
+
+    /* (re)declaring here as work-around until this thing start working */
+
+    /** @type {CdeTableD["format"]} */
+    this.format ;
+    /** @type {(CdeTableD & { format: 1 } )["startGlyph"] =} */
+    this.startGlyph ;
+    /** @type {(CdeTableD & { format: 2 } )["ranges"] =} */
+    this.ranges ;
+  }
 }
-ClassDef.prototype = Object.create(Table.prototype);
-ClassDef.prototype.constructor = ClassDef;
+
+/** @typedef {ClassDefImpl & CdeTableD } ClassDef */
+/** @type {new (...args: ConstructorParameters<typeof Table>) => ClassDef } */
+const ClassDef = ClassDefImpl ;
 
 // Record = same as Table, but inlined (a Table has an offset and its data is further in the stream)
 // Don't use offsets inside Records (probable bug), only in Tables.
@@ -248,3 +436,13 @@ export default {
     tableList,
     recordList,
 };
+
+export {
+  //
+  Table,
+  Coverage,
+  ClassDef,
+  ScriptList,
+  FeatureList,
+  LookupList,
+} ;

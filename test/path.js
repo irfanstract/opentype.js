@@ -1,5 +1,5 @@
 import assert  from 'assert';
-import { Path } from '../src/opentype';
+import { Path } from '../src/opentype.js';
 
 describe('path.js', function() {
     let emptyPath;
@@ -65,10 +65,18 @@ describe('path.js', function() {
     });
 
     it('should return a streamlined SVG path (no commas, no additional spaces, only absolute commands)', function() {
-        const input = 'M1,2 L 3 4Z M  .5 6.7 L 8 9 l 2,1 m1 1 c 1 2,3 4 5, 6q-7.8-9.0 -1.011 12 m-13.99-28 h 13 15 V 17 19 v21 23 25 H27 V28 zzzZZzzz';
-        const expectedSVG = 'M1 2L3 4ZM0.50 6.70L8 9L10 10M11 11C12 13 14 15 16 17Q8.20 8 14.99 29M1 1L14 1L29 1L29 17L29 19L29 40L29 63L29 88L27 88L27 28Z';
-        const path = Path.fromSVG(input, {flipY: false});
-        assert.deepEqual(path.toPathData({flipY: false}), expectedSVG);
+        {//
+            const input = 'M1,2 L 3 4Z M  .5 6.7 L 8 9 l 2,1 m1 1 c 1 2,3 4 5, 6q-7.8-9.0 -1.011 12 m-13.99-28 h 13 15 V 17 19 v21 23 25 H27 V28 zzzZZzzz';
+            const expectedSVG = 'M1 2L3 4ZM0.50 6.70L8 9L10 10M11 11C12 13 14 15 16 17Q8.20 8 14.99 29M1 1L14 1L29 1L29 17L29 19L29 40L29 63L29 88L27 88L27 28Z';
+            const path = Path.fromSVG(input, {flipY: false});
+            assert.deepEqual(path.toPathData({flipY: false}), expectedSVG);
+        }//
+        {//
+            const input = 'M1,2 M-20,-30L 3 4Z M  .5 6.7 L 8 9 l 2,1 m1 1 c 1 2,3 4 5, 6q-7.8-9.0 -1.011 12 m-13.99-28 h 13 15 V 17 19 v21 23 25 H27 V28 zzzZZzzz';
+            const expectedSVG = 'M1 2M-20-30L3 4ZM0.50 6.70L8 9L10 10M11 11C12 13 14 15 16 17Q8.20 8 14.99 29M1 1L14 1L29 1L29 17L29 19L29 40L29 63L29 88L27 88L27 28Z';
+            const path = Path.fromSVG(input, {flipY: false});
+            assert.deepEqual(path.toPathData({flipY: false}), expectedSVG);
+        }//
     });
 
     it('should accept integer or correct fallback for decimalPlaces backwards compatibility', function() {
@@ -83,8 +91,25 @@ describe('path.js', function() {
     });
 
     it('should not optimize SVG paths if parameter is set falsy', function() {
-        const unoptimizedResult = 'M0 50L0 250L50 250L100 250L150 250L200 250L200 50L0 50ZM250 50L250 250L300 250L350 250L400 250L450 250L450 50L250 50Z';
-        assert.equal(testPath2.toPathData({optimize: false, flipY: false}), unoptimizedResult);
+        {
+            const unoptimizedResult = 'M0 50L0 250L50 250L100 250L150 250L200 250L200 50L0 50ZM250 50L250 250L300 250L350 250L400 250L450 250L450 50L250 50Z';
+            assert.equal(testPath2.toPathData({optimize: false, flipY: false}), unoptimizedResult);
+        }
+        {
+            ;
+            const path = (new Path()).fromSVG(
+                'M199 97 L 199 97 L 313 97 L 313 97 Q 396 97 444 61 L 444 61 L 444 61 Q 493 25 493 -36 L 493 -36 L 493 -36' +
+                'Q 493 -108 428 -151 L 428 -151 L 428 -151 Q 363 -195 255 -195 L 255 -195 L 255 -195 Q 150 -195 90 -156 Z'
+            );
+            const pathBBox = path.getBoundingBox() ;
+            assert.deepStrictEqual({ ...pathBBox }, { x1: 90, y1: -195, x2: 493, y2: 97 }, JSON.stringify({ pathBBox, }) ) ;
+            assert.equal(path.toPathData({optimize: false,               }), ("M199 97L313 97Q396 97 444 61Q493 25 493-36Q493-108 428-151Q363-195 255-195Q150-195 90-156Z" ) );
+            assert.equal(path.toPathData({optimize: false, flipY: false, }), ("M199-195L313-195Q396-195 444-159Q493-123 493-62Q493 10 428 53Q363 97 255 97Q150 97 90 58Z"  ) );
+            console["log"]([
+                path.toPathData({optimize: false, flipY: false}) ,
+                path.toPathData({optimize: false,             }) ,
+            ]) ;
+        }
     });
 
     it('should optimize SVG paths if path closing point matches starting point', function() {
@@ -100,6 +125,8 @@ describe('path.js', function() {
         );
         const expectedPath = 'M199 97L313 97Q396 97 444 61Q493 25 493-36Q493-108 428-151Q363-195 255-195Q150-195 90-156Z';
         const expectedResult = '<path d="' + expectedPath + '"/>';
+        const pathBBox = path.getBoundingBox() ;
+        assert.deepStrictEqual({ ...pathBBox } , { x1: 90, y1: -195, x2: 493, y2: 97 }, JSON.stringify({ pathBBox, }) ) ;
         assert.equal(path.toSVG({optimize: true}), expectedResult);
         assert.equal(path.toDOMElement({optimize: true}).getAttribute('d'), expectedPath);
     });

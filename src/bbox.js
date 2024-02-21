@@ -1,5 +1,9 @@
 // The Bounding Box object
 
+/**
+ * 
+ * @type {(...args: [...v: [number, number, number, number], t: number] ) => number }
+ */
 function derive(v0, v1, v2, v3, t) {
     return Math.pow(1 - t, 3) * v0 +
         3 * Math.pow(1 - t, 2) * t * v1 +
@@ -33,8 +37,8 @@ BoundingBox.prototype.isEmpty = function() {
 /**
  * Add the point to the bounding box.
  * The x1/y1/x2/y2 coordinates of the bounding box will now encompass the given point.
- * @param {number} x - The X coordinate of the point.
- * @param {number} y - The Y coordinate of the point.
+ * @param {number | null } x - The X coordinate of the point.
+ * @param {number | null } y - The Y coordinate of the point.
  */
 BoundingBox.prototype.addPoint = function(x, y) {
     if (typeof x === 'number') {
@@ -99,15 +103,15 @@ BoundingBox.prototype.addBezier = function(x0, y0, x1, y1, x2, y2, x, y) {
     // This code is based on http://nishiohirokazu.blogspot.com/2009/06/how-to-calculate-bezier-curves-bounding.html
     // and https://github.com/icons8/svg-path-bounding-box
 
-    const p0 = [x0, y0];
-    const p1 = [x1, y1];
-    const p2 = [x2, y2];
-    const p3 = [x, y];
+    const p0 = /** @satisfies {[any, any ]} */ ([x0, y0]);
+    const p1 = /** @satisfies {[any, any ]} */ ([x1, y1]);
+    const p2 = /** @satisfies {[any, any ]} */ ([x2, y2]);
+    const p3 = /** @satisfies {[any, any ]} */ ([x , y ]);
 
     this.addPoint(x0, y0);
     this.addPoint(x, y);
 
-    for (let i = 0; i <= 1; i++) {
+    for (const i of /** @satisfies {[0, 1]} */ ([0, 1])) {
         const b = 6 * p0[i] - 12 * p1[i] + 6 * p2[i];
         const a = -3 * p0[i] + 9 * p1[i] - 9 * p2[i] + 3 * p3[i];
         const c = 3 * p1[i] - 3 * p0[i];
@@ -155,4 +159,18 @@ BoundingBox.prototype.addQuad = function(x0, y0, x1, y1, x, y) {
     this.addBezier(x0, y0, cp1x, cp1y, cp2x, cp2y, x, y);
 };
 
+export { BoundingBox } ;
+
 export default BoundingBox;
+
+/**
+ * @typedef { Pick<BoundingBox, `${'x' | 'y'}${1 | 2}`> } IBoundingBox
+ * 
+ */
+/**
+ * 
+ * 
+ */
+const IBoundingBox = {} ;
+
+export { IBoundingBox } ;
