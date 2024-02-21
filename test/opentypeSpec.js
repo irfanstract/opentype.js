@@ -1,11 +1,15 @@
 import assert from 'assert';
-import { Font, Path, Glyph, parse, load} from '../src/opentype.js';
+import { Font, Path, Glyph, parse } from '../src/opentype.js';
+import { load } from '../src/opentype_sv.mjs';
 import { readFileSync } from 'fs';
 const loadSync = (url, opt) => parse(readFileSync(url), opt);
 
 describe('opentype.js', function() {
-    it('can load a TrueType font', function() {
-        const font = loadSync('./test/fonts/Roboto-Black.ttf');
+    ;
+
+    /** @type {(f: Font) => void } */
+    function checkFontsRobotoBlackTtfOk (font)
+    {
         assert.deepEqual(font.names.macintosh.fontFamily, {en: 'Roboto Black'});
         assert.deepEqual(font.names.windows.fontFamily, {en: 'Roboto Black'});
         assert.equal(font.unitsPerEm, 2048);
@@ -13,38 +17,26 @@ describe('opentype.js', function() {
         const aGlyph = font.charToGlyph('A');
         assert.equal(aGlyph.unicode, 65);
         assert.equal(aGlyph.path.commands.length, 15);
-    });
+    }
 
-    it('[deprecated] .load() promise resolve uppon success', function(done) {
-        load('./test/fonts/Roboto-Black.ttf').then((font) => {
-            assert.deepEqual(font.names.macintosh.fontFamily, {en: 'Roboto Black'});
-            assert.deepEqual(font.names.windows.fontFamily, {en: 'Roboto Black'});
-            assert.equal(font.unitsPerEm, 2048);
-            assert.equal(font.glyphs.length, 1294);
-            const aGlyph = font.charToGlyph('A');
-            assert.equal(aGlyph.unicode, 65);
-            assert.equal(aGlyph.path.commands.length, 15);
-            done();
-        });
-    });
+    /** @type {(f: Font) => void } */
+    function checkFontsFiraSansMediumWoffCffOk (font)
+    {
+        ;
+        assert.deepEqual(font.names.macintosh.fontFamily, {en: 'Fira Sans OT'});
+        assert.deepEqual(font.names.windows.fontFamily, {en: 'Fira Sans OT'});
+        assert.equal(font.unitsPerEm, 1000);
+        assert.equal(font.glyphs.length, 1147);
+        const aGlyph = font.charToGlyph('A');
+        assert.equal(aGlyph.name, 'A');
+        assert.equal(aGlyph.unicode, 65);
+        assert.equal(aGlyph.path.commands.length, 14);
+    }
 
-    it('can load a font from URL in Node context', function(done) {
-        load('https://opentype.js.org/fonts/FiraSansMedium.woff', null, { isUrl: true }).then((font) => {
-            assert.deepEqual(font.names.macintosh.fontFamily, {en: 'Fira Sans OT'});
-            assert.deepEqual(font.names.windows.fontFamily, {en: 'Fira Sans OT'});
-            assert.equal(font.unitsPerEm, 1000);
-            assert.equal(font.glyphs.length, 1147);
-            const aGlyph = font.charToGlyph('A');
-            assert.equal(aGlyph.unicode, 65);
-            assert.equal(aGlyph.path.commands.length, 14);
-            done();
-        }).catch(error => {
-            console.log(error);
-        });
-    });
-
-    it('can load a OpenType/CFF font', function() {
-        const font = loadSync('./test/fonts/FiraSansOT-Medium.otf');
+    /** @type {(f: Font) => void } */
+    function checkFontsFiraSansMediumOtfCffOk (font)
+    {
+        ;
         assert.deepEqual(font.names.macintosh.fontFamily, {en: 'Fira Sans OT Medium'});
         assert.deepEqual(font.names.windows.fontFamily, {en: 'Fira Sans OT Medium'});
         assert.equal(font.unitsPerEm, 1000);
@@ -53,6 +45,33 @@ describe('opentype.js', function() {
         assert.equal(aGlyph.name, 'A');
         assert.equal(aGlyph.unicode, 65);
         assert.equal(aGlyph.path.commands.length, 14);
+    }
+
+    it('can load a TrueType font', function() {
+        const font = loadSync('./test/fonts/Roboto-Black.ttf');
+        checkFontsRobotoBlackTtfOk(font);
+    });
+
+    it('[deprecated] .load() promise resolve uppon success', function(done) {
+        load('./test/fonts/Roboto-Black.ttf').then((font) => {
+            ;
+            checkFontsRobotoBlackTtfOk(font);
+            done();
+        });
+    });
+    
+    it('can load a font from URL in Node context', function(done) {
+        load('https://opentype.js.org/fonts/FiraSansMedium.woff', null, { isUrl: true }).then((font) => {
+            checkFontsFiraSansMediumWoffCffOk(font);
+            done();
+        }).catch(error => {
+            console.log(error);
+        });
+    });
+
+    it('can load a OpenType/CFF font', function() {
+        const font = loadSync('./test/fonts/FiraSansOT-Medium.otf');
+        checkFontsFiraSansMediumOtfCffOk(font);
     });
 
     it('can load a CID-keyed font', function() {
@@ -74,14 +93,7 @@ describe('opentype.js', function() {
 
     it('can load a WOFF/CFF font', function() {
         const font = loadSync('./test/fonts/FiraSansMedium.woff');
-        assert.deepEqual(font.names.macintosh.fontFamily, {en: 'Fira Sans OT'});
-        assert.deepEqual(font.names.windows.fontFamily, {en: 'Fira Sans OT'});
-        assert.equal(font.unitsPerEm, 1000);
-        assert.equal(font.glyphs.length, 1147);
-        const aGlyph = font.charToGlyph('A');
-        assert.equal(aGlyph.name, 'A');
-        assert.equal(aGlyph.unicode, 65);
-        assert.equal(aGlyph.path.commands.length, 14);
+        checkFontsFiraSansMediumWoffCffOk(font);
     });
 
     it('[deprecated] .load() handles a parseBuffer error', function(done) {
