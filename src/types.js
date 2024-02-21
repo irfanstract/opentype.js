@@ -1,6 +1,7 @@
 // Data types used in the OpenType font file.
 // All OpenType fonts use Motorola-style byte ordering (Big Endian)
 
+import { athrow, assertionFail, asNonNull } from './athrow.mjs';
 import check from './check.js';
 
 const LIMIT16 = 32768; // The limit at which a 16-bit number switches signs == 2^15
@@ -25,7 +26,12 @@ const encode = {};
  */
 const sizeOf = {};
 
-// Return a function that always returns the same value.
+/**
+ * Return a function that always returns the same value.
+ * 
+ * @type {<const V>(value: V) => () => V }
+ * 
+ */
 function constant(v) {
     return function() {
         return v;
@@ -36,8 +42,7 @@ function constant(v) {
 
 /**
  * Convert an 8-bit unsigned integer to a list of 1 byte.
- * @param {number}
- * @returns {Array}
+ * @param {number} v
  */
 encode.BYTE = function(v) {
     check.argument(v >= 0 && v <= 255, 'Byte value should be between 0 and 255.');
@@ -45,14 +50,12 @@ encode.BYTE = function(v) {
 };
 /**
  * @constant
- * @type {number}
  */
 sizeOf.BYTE = constant(1);
 
 /**
  * Convert a 8-bit signed integer to a list of 1 byte.
- * @param {string}
- * @returns {Array}
+ * @param {string} v
  */
 encode.CHAR = function(v) {
     return [v.charCodeAt(0)];
@@ -60,14 +63,12 @@ encode.CHAR = function(v) {
 
 /**
  * @constant
- * @type {number}
  */
 sizeOf.CHAR = constant(1);
 
 /**
  * Convert an ASCII string to a list of bytes.
- * @param {string}
- * @returns {Array}
+ * @param {string} v
  */
 encode.CHARARRAY = function(v) {
     if (typeof v === 'undefined') {
@@ -83,7 +84,7 @@ encode.CHARARRAY = function(v) {
 };
 
 /**
- * @param {Array}
+ * @param {Array<any>} v
  * @returns {number}
  */
 sizeOf.CHARARRAY = function(v) {
@@ -95,8 +96,7 @@ sizeOf.CHARARRAY = function(v) {
 
 /**
  * Convert a 16-bit unsigned integer to a list of 2 bytes.
- * @param {number}
- * @returns {Array}
+ * @param {number} v
  */
 encode.USHORT = function(v) {
     return [(v >> 8) & 0xFF, v & 0xFF];
@@ -104,14 +104,12 @@ encode.USHORT = function(v) {
 
 /**
  * @constant
- * @type {number}
  */
 sizeOf.USHORT = constant(2);
 
 /**
  * Convert a 16-bit signed integer to a list of 2 bytes.
- * @param {number}
- * @returns {Array}
+ * @param {number} v
  */
 encode.SHORT = function(v) {
     // Two's complement
@@ -124,14 +122,12 @@ encode.SHORT = function(v) {
 
 /**
  * @constant
- * @type {number}
  */
 sizeOf.SHORT = constant(2);
 
 /**
  * Convert a 24-bit unsigned integer to a list of 3 bytes.
- * @param {number}
- * @returns {Array}
+ * @param {number} v
  */
 encode.UINT24 = function(v) {
     return [(v >> 16) & 0xFF, (v >> 8) & 0xFF, v & 0xFF];
@@ -139,14 +135,12 @@ encode.UINT24 = function(v) {
 
 /**
  * @constant
- * @type {number}
  */
 sizeOf.UINT24 = constant(3);
 
 /**
  * Convert a 32-bit unsigned integer to a list of 4 bytes.
- * @param {number}
- * @returns {Array}
+ * @param {number} v
  */
 encode.ULONG = function(v) {
     return [(v >> 24) & 0xFF, (v >> 16) & 0xFF, (v >> 8) & 0xFF, v & 0xFF];
@@ -154,14 +148,12 @@ encode.ULONG = function(v) {
 
 /**
  * @constant
- * @type {number}
  */
 sizeOf.ULONG = constant(4);
 
 /**
  * Convert a 32-bit unsigned integer to a list of 4 bytes.
- * @param {number}
- * @returns {Array}
+ * @param {number} v
  */
 encode.LONG = function(v) {
     // Two's complement
@@ -174,12 +166,13 @@ encode.LONG = function(v) {
 
 /**
  * @constant
- * @type {number}
  */
 sizeOf.LONG = constant(4);
 
 /**
  * Convert a 64-bit JavaScript float to a 32-bit signed fixed-point number (16.16)
+ * 
+ * @type {(x: number) => ReturnType<typeof encode.ULONG> }
  */
 encode.FLOAT = function(v) {
     if (v > MAX_16_16 || v < MIN_16_16) {
@@ -199,6 +192,7 @@ sizeOf.FWORD = sizeOf.SHORT;
 encode.UFWORD = encode.USHORT;
 sizeOf.UFWORD = sizeOf.USHORT;
 
+/** @param {number} v */
 encode.F2DOT14 = function(v) {
     return encode.USHORT(v * 16384);
 };
@@ -206,8 +200,8 @@ sizeOf.F2DOT14 = sizeOf.USHORT;
 
 /**
  * Convert a 32-bit Apple Mac timestamp integer to a list of 8 bytes, 64-bit timestamp.
- * @param {number}
- * @returns {Array}
+ * @param {number } v
+ * 
  */
 encode.LONGDATETIME = function(v) {
     // FIXME: at some point we need to support dates >2038 using the full 64bit
@@ -216,14 +210,14 @@ encode.LONGDATETIME = function(v) {
 
 /**
  * @constant
- * @type {number}
+ * 
  */
 sizeOf.LONGDATETIME = constant(8);
 
 /**
  * Convert a 4-char tag to a list of 4 bytes.
- * @param {string}
- * @returns {Array}
+ * @param {string } v
+ * 
  */
 encode.TAG = function(v) {
     check.argument(v.length === 4, 'Tag should be exactly 4 ASCII characters.');
@@ -235,7 +229,7 @@ encode.TAG = function(v) {
 
 /**
  * @constant
- * @type {number}
+ * 
  */
 sizeOf.TAG = constant(4);
 
@@ -256,8 +250,8 @@ sizeOf.SID = sizeOf.USHORT;
 // Convert a numeric operand or charstring number to a variable-size list of bytes.
 /**
  * Convert a numeric operand or charstring number to a variable-size list of bytes.
- * @param {number}
- * @returns {Array}
+ * @param {number } v
+ * 
  */
 encode.NUMBER = function(v) {
     if (v >= -107 && v <= 107) {
@@ -276,7 +270,7 @@ encode.NUMBER = function(v) {
 };
 
 /**
- * @param {number}
+ * @param {number } v
  * @returns {number}
  */
 sizeOf.NUMBER = function(v) {
@@ -286,8 +280,8 @@ sizeOf.NUMBER = function(v) {
 /**
  * Convert a signed number between -32768 and +32767 to a three-byte value.
  * This ensures we always use three bytes, but is not the most compact format.
- * @param {number}
- * @returns {Array}
+ * @param {number } v
+ * 
  */
 encode.NUMBER16 = function(v) {
     return [28, (v >> 8) & 0xFF, v & 0xFF];
@@ -295,7 +289,7 @@ encode.NUMBER16 = function(v) {
 
 /**
  * @constant
- * @type {number}
+ * 
  */
 sizeOf.NUMBER16 = constant(3);
 
@@ -303,8 +297,8 @@ sizeOf.NUMBER16 = constant(3);
  * Convert a signed number between -(2^31) and +(2^31-1) to a five-byte value.
  * This is useful if you want to be sure you always use four bytes,
  * at the expense of wasting a few bytes for smaller numbers.
- * @param {number}
- * @returns {Array}
+ * @param {number } v
+ * 
  */
 encode.NUMBER32 = function(v) {
     return [29, (v >> 24) & 0xFF, (v >> 16) & 0xFF, (v >> 8) & 0xFF, v & 0xFF];
@@ -312,13 +306,13 @@ encode.NUMBER32 = function(v) {
 
 /**
  * @constant
- * @type {number}
+ * 
  */
 sizeOf.NUMBER32 = constant(5);
 
 /**
- * @param {number}
- * @returns {Array}
+ * @param {number } v
+ * 
  */
 encode.REAL = function(v) {
     let value = v.toString();
@@ -327,7 +321,7 @@ encode.REAL = function(v) {
     // This code converts it back to a number without the epsilon.
     const m = /\.(\d*?)(?:9{5,20}|0{5,20})\d{0,2}(?:e(.+)|$)/.exec(value);
     if (m) {
-        const epsilon = parseFloat('1e' + ((m[2] ? +m[2] : 0) + m[1].length));
+        const epsilon = parseFloat('1e' + ((m[2] ? +m[2] : 0) + (m[1] ?? athrow(JSON.stringify({ m }) ) ).length));
         value = (Math.round(v * epsilon) / epsilon).toString();
     }
 
@@ -355,7 +349,7 @@ encode.REAL = function(v) {
 };
 
 /**
- * @param {number}
+ * @param {number } v
  * @returns {number}
  */
 sizeOf.REAL = function(v) {
@@ -402,8 +396,8 @@ decode.UTF16 = function(data, offset, numBytes) {
 
 /**
  * Convert a JavaScript string to UTF16-BE.
- * @param {string}
- * @returns {Array}
+ * @param {string } v
+ * 
  */
 encode.UTF16 = function(v) {
     const b = [];
@@ -417,7 +411,7 @@ encode.UTF16 = function(v) {
 };
 
 /**
- * @param {string}
+ * @param {string } v
  * @returns {number}
  */
 sizeOf.UTF16 = function(v) {
@@ -478,8 +472,8 @@ export const eightBitMacEncodings = {
  * @param {DataView} dataView
  * @param {number} offset
  * @param {number} dataLength
- * @param {string} encoding
- * @returns {string}
+ * @param {SupportedMacEncodingKey} encoding
+ * @returns {string | undefined}
  */
 decode.MACSTRING = function(dataView, offset, dataLength, encoding) {
     const table = eightBitMacEncodings[encoding];
@@ -502,23 +496,31 @@ decode.MACSTRING = function(dataView, offset, dataLength, encoding) {
     return result;
 };
 
+/** @typedef {keyof eightBitMacEncodings } SupportedMacEncodingKey */
+
 // Helper function for encode.MACSTRING. Returns a dictionary for mapping
 // Unicode character codes to their 8-bit MacOS equivalent. This table
 // is not exactly a super cheap data structure, but we do not care because
 // encoding Macintosh strings is only rarely needed in typical applications.
 const macEncodingTableCache = typeof WeakMap === 'function' && new WeakMap();
+/** @type {{ [key in SupportedMacEncodingKey ] ?: (Object & String) ; }} */
 let macEncodingCacheKeys;
+/**
+ * @param {keyof typeof macEncodingCacheKeys} encoding
+ */
 const getMacEncodingTable = function (encoding) {
     // Since we use encoding as a cache key for WeakMap, it has to be
-    // a String object and not a literal. And at least on NodeJS 2.10.1,
+    // a String object and not a literal.
     // WeakMap requires that the same String instance is passed for cache hits.
-    if (!macEncodingCacheKeys) {
-        macEncodingCacheKeys = {};
-        for (let e in eightBitMacEncodings) {
-            /*jshint -W053 */  // Suppress "Do not use String as a constructor."
-            macEncodingCacheKeys[e] = new String(e);
-        }
-    }
+    macEncodingCacheKeys ??= (
+        new (/** @this {{ [key: String]: unknown ; } } */ function EightBitMacEncodingCacheImpl() {
+            ;
+            for (const e in eightBitMacEncodings) {
+                /*jshint -W053 */  // Suppress "Do not use String as a constructor."
+                this[e] = new String(e);
+            }
+        } )()
+    ) ;
 
     const cacheKey = macEncodingCacheKeys[encoding];
     if (cacheKey === undefined) {
@@ -530,27 +532,30 @@ const getMacEncodingTable = function (encoding) {
     // between the calls to cache.has() and cache.get(). In that case,
     // we would return 'undefined' even though we do support the encoding.
     if (macEncodingTableCache) {
+      {
         const cachedTable = macEncodingTableCache.get(cacheKey);
         if (cachedTable !== undefined) {
             return cachedTable;
         }
+      }
+      {
+        const decodingTable = eightBitMacEncodings[encoding];
+        if (decodingTable === undefined) {
+            return undefined;
+        }
+        
+        const encodingTable = {};
+        for (let i = 0; i < decodingTable.length; i++) {
+            encodingTable[decodingTable.charCodeAt(i)] = i + 0x80;
+        }
+      
+        if (macEncodingTableCache) {
+            macEncodingTableCache.set(cacheKey, encodingTable);
+        }
+      
+        return encodingTable;
+      }
     }
-
-    const decodingTable = eightBitMacEncodings[encoding];
-    if (decodingTable === undefined) {
-        return undefined;
-    }
-
-    const encodingTable = {};
-    for (let i = 0; i < decodingTable.length; i++) {
-        encodingTable[decodingTable.charCodeAt(i)] = i + 0x80;
-    }
-
-    if (macEncodingTableCache) {
-        macEncodingTableCache.set(cacheKey, encodingTable);
-    }
-
-    return encodingTable;
 };
 
 /**
@@ -559,8 +564,8 @@ const getMacEncodingTable = function (encoding) {
  * a character that cannot be expressed in the encoding, the function returns
  * 'undefined'.
  * @param {string} str
- * @param {string} encoding
- * @returns {Array}
+ * @param {SupportedMacEncodingKey} encoding
+ * 
  */
 encode.MACSTRING = function(str, encoding) {
     const table = getMacEncodingTable(encoding);
@@ -591,7 +596,7 @@ encode.MACSTRING = function(str, encoding) {
 
 /**
  * @param {string} str
- * @param {string} encoding
+ * @param {keyof typeof eightBitMacEncodings} encoding
  * @returns {number}
  */
 sizeOf.MACSTRING = function(str, encoding) {
@@ -604,11 +609,20 @@ sizeOf.MACSTRING = function(str, encoding) {
 };
 
 // Helper for encode.VARDELTAS
+/**
+ * @type {(value: number) => boolean }
+ */
 function isByteEncodable(value) {
     return value >= -128 && value <= 127;
 }
 
 // Helper for encode.VARDELTAS
+/**
+ * 
+ * @param {unknown[] } deltas
+ * @param {number } pos
+ * @param {Array<number> } result
+ */
 function encodeVarDeltaRunAsZeroes(deltas, pos, result) {
     let runLength = 0;
     const numDeltas = deltas.length;
@@ -621,12 +635,18 @@ function encodeVarDeltaRunAsZeroes(deltas, pos, result) {
 }
 
 // Helper for encode.VARDELTAS
+/**
+ * 
+ * @param {number[] } deltas
+ * @param {number } offset
+ * @param {any[] } result
+ */
 function encodeVarDeltaRunAsBytes(deltas, offset, result) {
     let runLength = 0;
     const numDeltas = deltas.length;
     let pos = offset;
     while (pos < numDeltas && runLength < 64) {
-        const value = deltas[pos];
+        const value = deltas[pos] ?? athrow() ;
         if (!isByteEncodable(value)) {
             break;
         }
@@ -646,19 +666,26 @@ function encodeVarDeltaRunAsBytes(deltas, offset, result) {
         ++runLength;
     }
     result.push(runLength - 1);
-    for (let i = offset; i < pos; ++i) {
-        result.push((deltas[i] + 256) & 0xff);
+    for (const delta of deltas.slice(0, pos).slice(offset) )
+    {
+        result.push((delta + 256) & 0xff);
     }
     return pos;
 }
 
 // Helper for encode.VARDELTAS
+/**
+ * 
+ * @param {number[] } deltas
+ * @param {number } offset
+ * @param {Array<number> } result
+ */
 function encodeVarDeltaRunAsWords(deltas, offset, result) {
     let runLength = 0;
     const numDeltas = deltas.length;
     let pos = offset;
     while (pos < numDeltas && runLength < 64) {
-        const value = deltas[pos];
+        const value = deltas[pos] ?? athrow(JSON.stringify({ pos, deltas, } ) ) ;
 
         // Within a word-encoded run of deltas, it is easiest to start
         // a new run (with a different encoding) whenever we encounter
@@ -676,7 +703,8 @@ function encodeVarDeltaRunAsWords(deltas, offset, result) {
         // [0x6666, 2, 0x7777] becomes 7 bytes when storing the value
         // literally (42 66 66 00 02 77 77), but 8 bytes when starting
         // a new run (40 66 66 00 02 40 77 77).
-        if (isByteEncodable(value) && pos + 1 < numDeltas && isByteEncodable(deltas[pos + 1])) {
+        if (isByteEncodable(value) && pos + 1 < numDeltas && isByteEncodable(deltas[pos + 1] ?? athrow(JSON.stringify({ pos, deltas, } ) ) ) )
+        {
             break;
         }
 
@@ -684,8 +712,8 @@ function encodeVarDeltaRunAsWords(deltas, offset, result) {
         ++runLength;
     }
     result.push(0x40 | (runLength - 1));
-    for (let i = offset; i < pos; ++i) {
-        const val = deltas[i];
+    for (const val of deltas.slice(0, pos).slice(offset) )
+    {
         result.push(((val + 0x10000) >> 8) & 0xff, (val + 0x100) & 0xff);
     }
     return pos;
@@ -700,14 +728,14 @@ function encodeVarDeltaRunAsWords(deltas, offset, result) {
  *
  * @see https://www.microsoft.com/typography/otspec/gvar.htm
  * @see https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6gvar.html
- * @param {Array}
- * @return {Array}
+ * @param {number[] } deltas
+ * 
  */
 encode.VARDELTAS = function(deltas) {
     let pos = 0;
-    const result = [];
+    const result = /** @type {Array<number> } */ ([]);
     while (pos < deltas.length) {
-        const value = deltas[pos];
+        const value = deltas[pos] ?? athrow() ;
         if (value === 0) {
             pos = encodeVarDeltaRunAsZeroes(deltas, pos, result);
         } else if (value >= -128 && value <= 127) {
@@ -722,8 +750,8 @@ encode.VARDELTAS = function(deltas) {
 // Convert a list of values to a CFF INDEX structure.
 // The values should be objects containing name / type / value.
 /**
- * @param {Array} l
- * @returns {Array}
+ * @param {Array<any>} l
+ * 
  */
 encode.INDEX = function(l) {
     //var offset, offsets, offsetEncoder, encodedOffsets, encodedOffset, data,
@@ -733,7 +761,7 @@ encode.INDEX = function(l) {
     // calculate the offsets, then again to encode the offsets using the fitting data type.
     let offset = 1; // First offset is always 1.
     const offsets = [offset];
-    const data = [];
+    const data = /** @type {Array<any> } */ ([]);
     for (let i = 0; i < l.length; i += 1) {
         const v = encode.OBJECT(l[i]);
         Array.prototype.push.apply(data, v);
@@ -745,11 +773,11 @@ encode.INDEX = function(l) {
         return [0, 0];
     }
 
-    const encodedOffsets = [];
+    const encodedOffsets = /** @type {Array<number> } */ ([]);
     const offSize = (1 + Math.floor(Math.log(offset) / Math.log(2)) / 8) | 0;
-    const offsetEncoder = [undefined, encode.BYTE, encode.USHORT, encode.UINT24, encode.ULONG][offSize];
-    for (let i = 0; i < offsets.length; i += 1) {
-        const encodedOffset = offsetEncoder(offsets[i]);
+    const offsetEncoder = [undefined, encode.BYTE, encode.USHORT, encode.UINT24, encode.ULONG][offSize] ?? athrow(JSON.stringify({ offSize }) ) ;
+    for (const offset of offsets ) {
+        const encodedOffset = offsetEncoder(offset );
         Array.prototype.push.apply(encodedOffsets, encodedOffset);
     }
 
@@ -760,7 +788,7 @@ encode.INDEX = function(l) {
 };
 
 /**
- * @param {Array}
+ * @param {Array<any>} v
  * @returns {number}
  */
 sizeOf.INDEX = function(v) {
@@ -771,18 +799,19 @@ sizeOf.INDEX = function(v) {
  * Convert an object to a CFF DICT structure.
  * The keys should be numeric.
  * The values should be objects containing name / type / value.
- * @param {Object} m
- * @returns {Array}
+ * @param {{ [key: string]: KtOtjsAttribDesc }} m
+ * 
  */
 encode.DICT = function(m) {
     let d = [];
     const keys = Object.keys(m);
     const length = keys.length;
 
-    for (let i = 0; i < length; i += 1) {
+    for (const [i, key] of keys.entries() )
+    {
         // Object.keys() return string keys, but our keys are always numeric.
-        const k = parseInt(keys[i], 0);
-        const v = m[k];
+        const k = parseInt(key, 0);
+        const v = m[k] ?? athrow(`not found m[k]. ${JSON.stringify({ m, k, key }) } `) ;
         // Value comes before the key.
         const enc1 = encode.OPERAND(v.value, v.type);
         const enc2 = encode.OPERATOR(k);
@@ -798,7 +827,7 @@ encode.DICT = function(m) {
 };
 
 /**
- * @param {Object}
+ * @param {Parameters<typeof encode.DICT>[0] } m
  * @returns {number}
  */
 sizeOf.DICT = function(m) {
@@ -806,8 +835,8 @@ sizeOf.DICT = function(m) {
 };
 
 /**
- * @param {number}
- * @returns {Array}
+ * @param {number } v
+ * 
  */
 encode.OPERATOR = function(v) {
     if (v < 1200) {
@@ -818,48 +847,49 @@ encode.OPERATOR = function(v) {
 };
 
 /**
- * @param {Array} v
- * @param {string}
- * @returns {Array}
+ * 
+ * @returns {number[] }
  */
-encode.OPERAND = function(v, type) {
+encode.OPERAND = /** @param {[v: number, type: string] | [v: unknown[], type: unknown[] ]} args */ function (...args)
+{
+    const [v, type] = args ;
     let d = [];
-    if (Array.isArray(type)) {
-        for (let i = 0; i < type.length; i += 1) {
-            check.argument(v.length === type.length, 'Not enough arguments given for type' + type);
-            const enc1 = encode.OPERAND(v[i], type[i]);
-            for (let j = 0; j < enc1.length; j++) {
-                d.push(enc1[j]);
-            }
-        }
-    } else {
+    if (typeof type === "string") {
+        if (Array.isArray(v) ) { return assertionFail(JSON.stringify({ v, }) ) ; }
         if (type === 'SID') {
             const enc1 = encode.NUMBER(v);
-            for (let j = 0; j < enc1.length; j++) {
-                d.push(enc1[j]);
-            }
+            d.push(...enc1) ;
         } else if (type === 'offset') {
             // We make it easy for ourselves and always encode offsets as
             // 4 bytes. This makes offset calculation for the top dict easier.
             const enc1 = encode.NUMBER32(v);
-            for (let j = 0; j < enc1.length; j++) {
-                d.push(enc1[j]);
-            }
+            d.push(...enc1) ;
         } else if (type === 'number') {
             const enc1 = encode.NUMBER(v);
-            for (let j = 0; j < enc1.length; j++) {
-                d.push(enc1[j]);
-            }
+            d.push(...enc1) ;
         } else if (type === 'real') {
             const enc1 = encode.REAL(v);
-            for (let j = 0; j < enc1.length; j++) {
-                d.push(enc1[j]);
-            }
+            d.push(...enc1) ;
         } else {
-            throw new Error('Unknown operand type ' + type);
+            throw new Error(`Unknown operand type ${type}. `);
             // FIXME Add support for booleans
         }
     }
+    else
+    if (Array.isArray(type)) {
+        if (!Array.isArray(v) ) { return assertionFail(JSON.stringify({ v, }) ) ; }
+        for (let i = 0; i < type.length; i += 1) {
+            check.argument(v.length === type.length, `Not enough arguments given for type ${type}`);
+            const enc1 = (
+                encode.OPERAND(
+                    // @ts-ignore
+                    v[i], type[i])
+            );
+            d.push(...enc1) ;
+        }
+    }
+    else
+    { athrow(`args-list does not comply. ${JSON.stringify({ type, v, args, }) }` ) ; }
 
     return d;
 };
@@ -872,8 +902,8 @@ const wmm = typeof WeakMap === 'function' && new WeakMap();
 
 /**
  * Convert a list of CharString operations to bytes.
- * @param {Array}
- * @returns {Array}
+ * @param {Array<any>} ops
+ * 
  */
 encode.CHARSTRING = function(ops) {
     // See encode.MACSTRING for why we don't do "if (wmm && wmm.has(ops))".
@@ -889,7 +919,10 @@ encode.CHARSTRING = function(ops) {
 
     for (let i = 0; i < length; i += 1) {
         const op = ops[i];
-        const enc1 = encode[op.type](op.value);
+        const enc1 = (
+            encode[op.type]
+                (op.value)
+        );
         for (let j = 0; j < enc1.length; j++) {
             d.push(enc1[j]);
         }
@@ -903,42 +936,51 @@ encode.CHARSTRING = function(ops) {
 };
 
 /**
- * @param {Array}
+ * @param {Array<any>} ops
  * @returns {number}
  */
 sizeOf.CHARSTRING = function(ops) {
     return encode.CHARSTRING(ops).length;
 };
 
+// Index Signature On `encode` ////////////////////////////////////////////////////////
+
+// const encodingUtilSpclDoAssertIndexed
+// TODO
+
 // Utility functions ////////////////////////////////////////////////////////
 
+/** @typedef {KtOtjsAttribDesc } SpclNtvPair */
+
 /**
- * Convert an object containing name / type / value to bytes.
- * @param {Object}
- * @returns {Array}
+ * Convert a {@link KtOtjsAttribDesc} to bytes.
+ * 
+ * @param {KtOtjsAttribDesc } v
+ * 
  */
 encode.OBJECT = function(v) {
     const encodingFunction = encode[v.type];
-    check.argument(encodingFunction !== undefined, 'No encoding function for type ' + v.type);
+    check.argument(encodingFunction !== undefined, `missing encoding-function for type ${v.type}`);
     return encodingFunction(v.value);
 };
 
 /**
- * @param {Object}
+ * @param {KtOtjsAttribDesc } v
  * @returns {number}
  */
 sizeOf.OBJECT = function(v) {
-    const sizeOfFunction = sizeOf[v.type];
-    check.argument(sizeOfFunction !== undefined, 'No sizeOf function for type ' + v.type);
-    return sizeOfFunction(v.value);
+    const sizeofFunction = sizeOf[v.type];
+    check.argument(sizeofFunction !== undefined, `missing sizeof-function for type ${v.type}`);
+    return sizeofFunction(v.value);
 };
 
 /**
- * Convert a table object to bytes.
+ * Convert a {@link KtOtjsTable } to bytes.
  * A table contains a list of fields containing the metadata (name, type and default value).
  * The table itself has the field values set as attributes.
- * @param {opentype.Table}
- * @returns {Array}
+ * 
+ * @param {KtOtjsTable } table
+ * 
  */
 encode.TABLE = function(table) {
     let d = [];
@@ -946,10 +988,10 @@ encode.TABLE = function(table) {
     const subtables = [];
     const subtableOffsets = [];
 
-    for (let i = 0; i < length; i += 1) {
-        const field = table.fields[i];
+    for (const field of table.fields ?? [] )
+    {
         const encodingFunction = encode[field.type];
-        check.argument(encodingFunction !== undefined, 'No encoding function for field type ' + field.type + ' (' + field.name + ')');
+        check.argument(encodingFunction !== undefined, `missing encoding-function for field type ${field.type} (${field.name})`);
         let value = table[field.name];
         if (value === undefined) {
             value = field.value;
@@ -967,38 +1009,37 @@ encode.TABLE = function(table) {
             }
             d.push(...[0, 0]);
         } else {
-            for (let j = 0; j < bytes.length; j++) {
-                d.push(bytes[j]);
-            }
+            d.push(...bytes ) ;
         }
     }
 
     for (let i = 0; i < subtables.length; i += 1) {
-        const o = subtableOffsets[i];
+        const o = subtableOffsets[i] ?? athrow(JSON.stringify({ i, subtableOffsets, subtables, }) ) ;
+        /** @type {number} */
         const offset = d.length;
-        check.argument(offset < 65536, 'Table ' + table.tableName + ' too big.');
+        check.argument(offset < 65536, `table ${table.tableName} too big.`);
         d[o] = offset >> 8;
         d[o + 1] = offset & 0xff;
-        for (let j = 0; j < subtables[i].length; j++) {
-            d.push(subtables[i][j]);
-        }
+        d.push(...subtables[i] ) ;
     }
 
     return d;
 };
 
 /**
- * @param {opentype.Table}
+ * 
+ * @param {KtOtjsTable } table
+ * 
  * @returns {number}
  */
 sizeOf.TABLE = function(table) {
     let numBytes = 0;
     const length = (table.fields || []).length;
 
-    for (let i = 0; i < length; i += 1) {
-        const field = table.fields[i];
+    for (const field of table.fields ?? [] )
+    {
         const sizeOfFunction = sizeOf[field.type];
-        check.argument(sizeOfFunction !== undefined, 'No sizeOf function for field type ' + field.type + ' (' + field.name + ')');
+        check.argument(sizeOfFunction !== undefined, `missing sizeof-function for field type ${field.type} (${field.name})`);
         let value = table[field.name];
         if (value === undefined) {
             value = field.value;
@@ -1018,13 +1059,25 @@ sizeOf.TABLE = function(table) {
 encode.RECORD = encode.TABLE;
 sizeOf.RECORD = sizeOf.TABLE;
 
-// Merge in a list of bytes.
+/**
+ * Merge in a list of bytes.
+ * @type {<const vl>(value: vl) => vl }
+ */
 encode.LITERAL = function(v) {
     return v;
 };
 
+/**
+ * 
+ * @type {<const vl extends any[]>(value: vl) => number }
+ */
 sizeOf.LITERAL = function(v) {
     return v.length;
 };
 
+/** @typedef {keyof typeof encode } OtjsSupportedDataType */
+const OtjsSupportedDataType = {} ;
+
 export { decode, encode, sizeOf };
+
+export { OtjsSupportedDataType } ;

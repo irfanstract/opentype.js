@@ -4,6 +4,7 @@
 // Recommendations for creating OpenType Fonts:
 // http://www.microsoft.com/typography/otspec140/recom.htm
 
+import { athrow, assertionFail } from '../athrow.mjs';
 import check from '../check.js';
 import table from '../table.js';
 
@@ -26,10 +27,12 @@ import stat from './stat.js';
 import avar from './avar.js';
 import gasp from './gasp.js';
 
+/** @type {(x: number) => number } */
 function log2(v) {
     return Math.log(v) / Math.log(2) | 0;
 }
 
+/** @type {(x: number[]) => number } */
 function computeCheckSum(bytes) {
     while (bytes.length % 4 !== 0) {
         bytes.push(0);
@@ -47,7 +50,10 @@ function computeCheckSum(bytes) {
     return sum;
 }
 
-function makeTableRecord(tag, checkSum, offset, length) {
+/**
+ * @param {[tag: string, checkSum: number, offset: number, length: number]} param0 
+ */
+function makeTableRecord(...[tag, checkSum, offset, length]) {
     return new table.Record('Table Record', [
         {name: 'tag', type: 'TAG', value: tag !== undefined ? tag : ''},
         {name: 'checkSum', type: 'ULONG', value: checkSum !== undefined ? checkSum : 0},
@@ -109,12 +115,17 @@ function makeSfntTable(tables) {
     return sfnt;
 }
 
-// Get the metrics for a character. If the string has more than one character
-// this function returns metrics for the first available character.
-// You can provide optional fallback metrics if no characters are available.
-function metricsForChar(font, chars, notFoundMetrics) {
-    for (let i = 0; i < chars.length; i += 1) {
-        const glyphIndex = font.charToGlyphIndex(chars[i]);
+/**
+ * Get the metrics for a character. If the string has more than one character
+ * this function returns metrics for the first available character.
+ * You can provide optional fallback metrics if no characters are available.
+ * 
+ * @param {[font: import("../font.js").default , chars: string, notFoundMetrics: any]} param0 
+ */
+function metricsForChar(...[font, chars, notFoundMetrics]) {
+    for (const char of chars )
+    {
+        const glyphIndex = font.charToGlyphIndex(chars);
         if (glyphIndex > 0) {
             const glyph = font.glyphs.get(glyphIndex);
             return glyph.getMetrics();
@@ -124,17 +135,22 @@ function metricsForChar(font, chars, notFoundMetrics) {
     return notFoundMetrics;
 }
 
+/** @type {(x: number[]) => number } */
 function average(vs) {
     let sum = 0;
-    for (let i = 0; i < vs.length; i += 1) {
-        sum += vs[i];
+    for (const v of vs ) {
+        sum += v;
     }
 
     return sum / vs.length;
 }
 
-// Convert the font object to a SFNT data structure.
-// This structure contains all the necessary tables and metadata to create a binary OTF file.
+/**
+ * Convert the font object to a SFNT data structure.
+ * This structure contains all the necessary tables and metadata to create a binary OTF file.
+ * 
+ * @param {import("../font.js").default } font
+ */
 function fontToSfntTable(font) {
     const xMins = [];
     const yMins = [];
@@ -267,16 +283,13 @@ function fontToSfntTable(font) {
     const hmtxTable = hmtx.make(font.glyphs);
     const cmapTable = cmap.make(font.glyphs);
 
-    const englishFamilyName = font.getEnglishName('fontFamily');
-    const englishStyleName = font.getEnglishName('fontSubfamily');
-    const englishFullName = englishFamilyName + ' ' + englishStyleName;
-    let postScriptName = font.getEnglishName('postScriptName');
-    if (!postScriptName) {
-        postScriptName = englishFamilyName.replace(/\s/g, '') + '-' + englishStyleName;
-    }
+    const englishFamilyName = (font.getEnglishName('fontFamily')    ) ?? athrow(`not found attribute: Family or Subfamily Name `) ;
+    const englishStyleName  = (font.getEnglishName('fontSubfamily') ) ?? athrow(`not found attribute: Family or Subfamily Name `) ;
+    const englishFullName   = englishFamilyName + ' ' + englishStyleName;
+    let postScriptName = font.getEnglishName('postScriptName') || englishFamilyName.replace(/\s/g, '') + '-' + englishStyleName ;
 
     const names = {};
-    for (let n in font.names) {
+    for (const n in font.names) {
         names[n] = font.names[n];
     }
 
@@ -289,7 +302,7 @@ function fontToSfntTable(font) {
     const fontNamesWindows = font.names.windows || {};
 
     // do this as a loop to reduce redundant code
-    for (const platform in ['unicode', 'macintosh', 'windows']) {
+    for (const platform of /** @type {const} */ (['unicode', 'macintosh', 'windows'])) {
 
         names[platform] = names[platform] || {};
 
@@ -393,11 +406,12 @@ function fontToSfntTable(font) {
     // Compute the font's checkSum and store it in head.checkSumAdjustment.
     const bytes = sfntTable.encode();
     const checkSum = computeCheckSum(bytes);
-    const tableFields = sfntTable.fields;
+    const tableFields = sfntTable.fields ?? athrow(`'sfntTable.fields' is null`) ;
     let checkSumAdjusted = false;
-    for (let i = 0; i < tableFields.length; i += 1) {
-        if (tableFields[i].name === 'head table') {
-            tableFields[i].value.checkSumAdjustment = 0xB1B0AFBA - checkSum;
+    for (const tableField of tableFields )
+    {
+        if (tableField.name === 'head table') {
+            tableField.value.checkSumAdjustment = 0xB1B0AFBA - checkSum;
             checkSumAdjusted = true;
             break;
         }

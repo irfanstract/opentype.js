@@ -1,6 +1,6 @@
 import assert from 'assert';
 import Bidi from '../src/bidi.js';
-import { parse } from '../src/opentype.js';
+import { parse } from '../src/opentype_sv.mjs';
 import { readFileSync } from 'fs';
 const loadSync = (url, opt) => parse(readFileSync(url), opt);
 

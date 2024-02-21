@@ -14,9 +14,11 @@ import {
     cffIExpertStrings,
     cffExpertSubsetStrings } from '../encoding.js';
 import glyphset from '../glyphset.js';
-import parse from '../parse.js';
+import parse, { Parser } from '../parse.js';
+import { OtjsPrsByteBuffer } from '../parse.js';
 import Path from '../path.js';
 import table from '../table.js';
+import * as table1 from '../table.js';
 
 // Custom equals function that can also check lists.
 function equals(a, b) {
@@ -56,8 +58,16 @@ function calcCFFSubroutineBias(subrs) {
 
 // @TODO: reduce code duplication between parseCFFIndex(), parseCFFIndexLowMemory() and getCffIndexObject()
 
-// Parse a `CFF` INDEX array.
-// An index array consists of a list of offsets, then a list of objects at those offsets.
+/**
+ * Parse a `CFF` INDEX array.
+ * An index array consists of a list of offsets, then a list of objects at those offsets.
+ * 
+ * @param {OtjsPrsByteBuffer } data
+ * @param {number } start
+ * @param {Function } conversionFn
+ * @param {number } version
+ * 
+ */
 function parseCFFIndex(data, start, conversionFn, version) {
     const offsets = [];
     const objects = [];
@@ -92,6 +102,12 @@ function parseCFFIndex(data, start, conversionFn, version) {
     return {objects: objects, startOffset: start, endOffset: endOffset};
 }
 
+/**
+ * @param {OtjsPrsByteBuffer } data
+ * @param {number } start
+ * @param {number } version
+ * 
+ */
 function parseCFFIndexLowMemory(data, start, version) {
     const offsets = [];
     const count = version > 1 ? parse.getULong(data, start) : parse.getCard16(data, start);
@@ -115,6 +131,15 @@ function parseCFFIndexLowMemory(data, start, version) {
 
     return {offsets: offsets, startOffset: start, endOffset: endOffset};
 }
+/**
+ * @param {number} i i
+ * @param {number[] } offsets
+ * @param {OtjsPrsByteBuffer } data
+ * @param {number } start
+ * @param {Function } conversionFn
+ * @param {number } version
+ * 
+ */
 function getCffIndexObject(i, offsets, data, start, conversionFn, version) {
     const count = version > 1 ? parse.getULong(data, start) : parse.getCard16(data, start);
     const countLength = version > 1 ? 4 : 2;
@@ -131,7 +156,11 @@ function getCffIndexObject(i, offsets, data, start, conversionFn, version) {
     return value;
 }
 
-// Parse a `CFF` DICT real value.
+// 
+/**
+ * Parse a `CFF` DICT real value.
+ * @param {Parser} parser parser
+ */
 function parseFloatOperand(parser) {
     let s = '';
     const eof = 15;
@@ -157,7 +186,11 @@ function parseFloatOperand(parser) {
     return parseFloat(s);
 }
 
-// Parse a `CFF` DICT operand.
+/**
+ * Parse a `CFF` DICT operand.
+ * @param {Parser} parser parser
+ * @param {number} b0     the leading byte
+ */
 function parseOperand(parser, b0) {
     let b1;
     let b2;
@@ -222,8 +255,16 @@ function entriesToObject(entries) {
     return o;
 }
 
-// Parse a `CFF` DICT object.
-// A dictionary contains key-value pairs in a compact tokenized format.
+/**
+ * Parse a `CFF` DICT object.
+ * A dictionary contains key-value pairs in a compact tokenized format.
+ * 
+ * @param {OtjsPrsByteBuffer } data
+ * @param {number } start
+ * @param {number } size
+ * @param {number } version
+ * 
+ */
 function parseCFFDict(data, start, size, version) {
     start = start !== undefined ? start : 0;
     const parser = new parse.Parser(data, start);
@@ -260,8 +301,14 @@ function parseCFFDict(data, start, size, version) {
     return entriesToObject(entries);
 }
 
-// Given a String Index (SID), return the value of the string.
-// Strings below index 392 are standard CFF strings and are not encoded in the font.
+/**
+ * Given a String Index (SID), return the value of the string.
+ * Strings below index 392 are standard CFF strings and are not encoded in the font.
+ * 
+ * @param {Array} strings
+ * @param {number} index
+ * 
+ */
 function getCFFString(strings, index) {
     if (index <= 390) {
         index = cffStandardStrings[index];
@@ -274,8 +321,19 @@ function getCFFString(strings, index) {
     return index;
 }
 
+/**
+ * @typedef {ReturnType<typeof getCFFString> } OtjsCffString1
+ * 
+ */
+
 // Interpret a dictionary and return a new dictionary with readable keys and values for missing entries.
 // This function takes `meta` which is a list of objects containing `operand`, `name` and `default`.
+/**
+ * 
+ * @param {Array[] } dict
+ * @param {Array } meta
+ * @param {OtjsCffString1[] } strings
+ */
 function interpretDict(dict, meta, strings) {
     const newDict = {};
     let value;
@@ -315,7 +373,14 @@ function interpretDict(dict, meta, strings) {
     return newDict;
 }
 
-// Parse the CFF header.
+// 
+/**
+ * Parse the CFF header.
+ * 
+ * @param {OtjsPrsByteBuffer } data
+ * @param {number } start
+ * 
+ */
 function parseCFFHeader(data, start) {
     const header = {};
     header.formatMajor = parse.getCard8(data, start);
@@ -338,6 +403,20 @@ function parseCFFHeader(data, start) {
     return header;
 }
 
+/**
+ * @typedef {{name: string, op: number, } & { type: PsOperandType, value?: null | {} } } PsOpCodeSpec
+ * 
+ * 
+ */
+
+/** @typedef {PsOperandTypeTerminal | PsOperandTypeAggregate } PsOperandType */
+
+/** @typedef {PsOperandType[] } PsOperandTypeAggregate */
+
+// @ts-ignore
+/** @typedef {keyof { string, number, offset, delta, real, SID } } PsOperandTypeTerminal */
+
+/** @satisfies {PsOpCodeSpec[]} */
 const TOP_DICT_META = [
     {name: 'version', op: 0, type: 'SID'},
     {name: 'notice', op: 1, type: 'SID'},
@@ -376,6 +455,7 @@ const TOP_DICT_META = [
     {name: 'fontName', op: 1238, type: 'SID'}
 ];
 
+/** @satisfies {PsOpCodeSpec[]} */
 const TOP_DICT_META_CFF2 = [
     {
         name: 'fontMatrix',
@@ -389,6 +469,7 @@ const TOP_DICT_META_CFF2 = [
     {name: 'vstore', op: 24, type: 'offset'}
 ];
 
+/** @satisfies {PsOpCodeSpec[]} */
 const PRIVATE_DICT_META = [
     {name: 'subrs', op: 19, type: 'offset', value: 0},
     {name: 'defaultWidthX', op: 20, type: 'number', value: 0},
@@ -396,6 +477,7 @@ const PRIVATE_DICT_META = [
 ];
 
 // https://learn.microsoft.com/en-us/typography/opentype/spec/cff2#table-16-private-dict-operators
+/** @satisfies {PsOpCodeSpec[]} */
 const PRIVATE_DICT_META_CFF2 = [
     {name: 'blueValues', op: 6, type: 'delta'},
     {name: 'otherBlues', op: 7, type: 'delta'},
@@ -416,28 +498,64 @@ const PRIVATE_DICT_META_CFF2 = [
 ];
 
 // https://learn.microsoft.com/en-us/typography/opentype/spec/cff2#table-10-font-dict-operator-entries
+/** @satisfies {PsOpCodeSpec[]} */
 const FONT_DICT_META = [
     {name: 'private', op: 18, type: ['number', 'offset'], value: [0, 0]}
 ];
 
-// Parse the CFF top dictionary. A CFF table can contain multiple fonts, each with their own top dictionary.
-// The top dictionary contains the essential metadata for the font, together with the private dictionary.
+/**
+ * Parse the CFF top dictionary. A CFF table can contain multiple fonts, each with their own top dictionary.
+ * The top dictionary contains the essential metadata for the font, together with the private dictionary.
+ * 
+ * @param {DataView } data
+ * @param {number } start
+ * @param {number } size
+ * @param {number } version
+ * 
+ */
 function parseCFFTopDict(data, start, strings, version) {
     const dict = parseCFFDict(data, start, data.byteLength, version);
     return interpretDict(dict, version > 1 ? TOP_DICT_META_CFF2 : TOP_DICT_META, strings);
 }
 
-// Parse the CFF private dictionary. We don't fully parse out all the values, only the ones we need.
+// 
+/**
+ * Parse the CFF private dictionary. We don't fully parse out all the values, only the ones we need.
+ * 
+ * @param {DataView } data
+ * @param {number } start
+ * @param {number } size
+ * @param {OtjsCffString1[] } strings
+ * @param {number } version
+ * 
+ */
 function parseCFFPrivateDict(data, start, size, strings, version) {
     const dict = parseCFFDict(data, start, size, version);
     return interpretDict(dict, version > 1 ? PRIVATE_DICT_META_CFF2 : PRIVATE_DICT_META, strings);
 }
 
+/**
+ * @param {DataView } data
+ * @param {number } start
+ * @param {number } version
+ * 
+ */
 function parseFontDict(data, start, version) {
     const dict = parseCFFDict(data, start, undefined, version);
     return interpretDict(dict, FONT_DICT_META);
 }
 
+/**
+ * @typedef {number[] } OtjsCfFontDictData
+ * 
+ */
+
+/**
+ * @param {DataView } data
+ * @param {number } start
+ * @param {OtjsCfFontDictData[] } fdArray
+ * 
+ */
 function gatherCFF2FontDicts(data, start, fdArray) {
     const fontDictArray = [];
     for(let i = 0; i < fdArray.length; i++) {
@@ -460,25 +578,37 @@ function gatherCFF2FontDicts(data, start, fdArray) {
     return fontDictArray;
 }
 
-// Returns a list of "Top DICT"s found using an INDEX list.
-// Used to read both the usual high-level Top DICTs and also the FDArray
-// discovered inside CID-keyed fonts.  When a Top DICT has a reference to
-// a Private DICT that is read and saved into the Top DICT.
-//
-// In addition to the expected/optional values as outlined in TOP_DICT_META
-// the following values might be saved into the Top DICT.
-//
-//    _subrs []        array of local CFF subroutines from Private DICT
-//    _subrsBias       bias value computed from number of subroutines
-//                      (see calcCFFSubroutineBias() and parseCFFCharstring())
-//    _defaultWidthX   default widths for CFF characters
-//    _nominalWidthX   bias added to width embedded within glyph description
-//
-//    _privateDict     saved copy of parsed Private DICT from Top DICT
-function gatherCFFTopDicts(data, start, cffIndex, strings, version) {
+/**
+ * Returns a list of "Top DICT"s found using an INDEX list.
+ * Used to read both the usual high-level Top DICTs and also the FDArray
+ * discovered inside CID-keyed fonts.  When a Top DICT has a reference to
+ * a Private DICT that is read and saved into the Top DICT.
+ *
+ * In addition to the expected/optional values as outlined in TOP_DICT_META
+ * the following values might be saved into the Top DICT.
+ *
+ *    _subrs []        array of local CFF subroutines from Private DICT
+ *    _subrsBias       bias value computed from number of subroutines
+ *                      (see calcCFFSubroutineBias() and parseCFFCharstring())
+ *    _defaultWidthX   default widths for CFF characters
+ *    _nominalWidthX   bias added to width embedded within glyph description
+ *
+ *    _privateDict     saved copy of parsed Private DICT from Top DICT
+ * 
+ * @param {DataView } data
+ * @param {number } start
+ * @param {(ConstructorParameters<Uint8ArrayConstructor>[0] )[] } cffIndex
+ * @param {{}[] } strings
+ * @param {number } version
+ * 
+ */
+function gatherCFFTopDicts(data, start, cffIndex, strings, version)
+{
     const topDictArray = [];
-    for (let iTopDict = 0; iTopDict < cffIndex.length; iTopDict += 1) {
-        const topDictData = new DataView(new Uint8Array(cffIndex[iTopDict]).buffer);
+    // const [iTopDict, cffIndexItem] of cffIndex
+    for (const [iTopDict, cffIndexItem] of cffIndex.entries() )
+    {
+        const topDictData = new DataView(new Uint8Array(cffIndexItem ).buffer);
         const topDict = parseCFFTopDict(topDictData, 0, strings, version);
         topDict._subrs = [];
         topDict._subrsBias = 0;
@@ -623,17 +753,17 @@ function parseCFFCharstring(font, glyph, code, version) {
     let c2x;
     let c2y;
     const p = new Path();
-    const stack = [];
-    let nStems = 0;
-    let haveWidth = false;
-    let open = false;
-    let x = 0;
-    let y = 0;
-    let subrs;
-    let subrsBias;
-    let defaultWidthX;
-    let nominalWidthX;
-    let vsindex = 0;
+    const stack = /** @type {{ shift(): number ; pop(): number ; } & number[] & {} } */ (/** @type {number[] & { } } */ ([]) ) ;
+    /** @type {number } */ let nStems = 0;
+    /** @type {boolean} */ let haveWidth = false;
+    /** @type {boolean} */ let open = false;
+    /** @type {number } */ let x = 0;
+    /** @type {number } */ let y = 0;
+    /** @type {number } */ let subrs;
+    /** @type {number } */ let subrsBias;
+    /** @type {number } */ let defaultWidthX;
+    /** @type {number } */ let nominalWidthX;
+    /** @type {number } */ let vsindex = 0;
     let vstore = [];
     const cffTable = font.tables.cff2 || font.tables.cff;
     defaultWidthX = cffTable.topDict._defaultWidthX;
@@ -1446,6 +1576,7 @@ function makeCharsets(glyphNames, strings) {
 }
 
 function glyphToOps(glyph, version) {
+    /** @type {Array<KtOtjsAttribDesc> } */
     const ops = [];
     const path = glyph.path;
     if ( version < 2 ) {
@@ -1520,7 +1651,7 @@ function glyphToOps(glyph, version) {
 
 function makeCharStringsIndex(glyphs, version) {
     const t = new table.Record('CharStrings INDEX', [
-        {name: 'charStrings', type: 'INDEX', value: []}
+        {name: 'charStrings', type: 'INDEX', value: /** @type {Array<KtOtjsAttribDesc> } */ ([]) }
     ]);
 
     for (let i = 0; i < glyphs.length; i += 1) {
@@ -1545,7 +1676,7 @@ function makeCFFTable(glyphs, options) {
     // right now, CFF2 fonts can be parsed, but will be saved as CFF
     const cffVersion = 1;
 
-    const t = new table.Table('CFF ', [
+    const t = new table.IndexableHalfBuiltEcdTable('CFF ', [
         {name: 'header', type: 'RECORD'},
         {name: 'nameIndex', type: 'RECORD'},
         {name: 'topDictIndex', type: 'RECORD'},

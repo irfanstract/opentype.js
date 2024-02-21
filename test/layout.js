@@ -1,5 +1,5 @@
 import assert  from 'assert';
-import { Font, Path, Glyph } from '../src/opentype.js';
+import { Font, Path, Glyph } from '../src/opentype_sv.mjs';
 import Layout  from '../src/layout.js';
 
 describe('layout.js', function() {

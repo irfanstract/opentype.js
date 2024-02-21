@@ -4,7 +4,7 @@ import Glyph from '../../src/glyph.js';
 import glyphset from '../../src/glyphset.js';
 import Path from '../../src/path.js';
 import cff from '../../src/tables/cff.js';
-import { parse } from '../../src/opentype.js';
+import { parse } from '../../src/opentype_sv.mjs';
 import { readFileSync } from 'fs';
 const loadSync = (url, opt) => parse(readFileSync(url), opt);
 
@@ -45,7 +45,7 @@ describe('tables/cff.js', function () {
     });
 
     /**
-     * @see https://github.com/opentypejs/opentype.js/issues/524
+     * @see https://github.com/opentypejs/opentype_sv.mjs/issues/524
      */
     it('can fall back to CIDs instead of strings when parsing the charset', function () {
         const font = loadSync('./test/fonts/FiraSansOT-Medium.otf', { lowMemory: true });

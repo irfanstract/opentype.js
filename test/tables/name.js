@@ -5,12 +5,12 @@ import _name from '../../src/tables/name.js';
 import { hex, unhex } from '../testutil.js';
 
 // For testing, we need a custom function that builds name tables.
-// The public name.make() API of opentype.js is hiding the complexity
+// The public name.make() API of opentype_sv.mjs is hiding the complexity
 // of the various historic encodings and language identification
 // systems that are used in OpenType and TrueType. Instead, it emits a
 // simple JavaScript dictionary keyed by IETF BCP 47 language codes,
 // which is the same format that is used for HTML and XML language
-// tags.  That is convenient for users of opentype.js, but it
+// tags.  That is convenient for users of opentype_sv.mjs, but it
 // complicates testing.
 function makeNameTable(names) {
     const t = new table.Table('name', [
@@ -237,7 +237,7 @@ describe('tables/name.js', function() {
 
     it('can make a naming table for languages in unsupported scripts', function() {
         // MacJapanese would need very large tables for conversion,
-        // so we do not ship a codec for this encoding in opentype.js.
+        // so we do not ship a codec for this encoding in opentype_sv.mjs.
         // The implementation should fall back to emitting Unicode strings
         // with a BCP 47 language code; only newer versions of MacOS will
         // recognize it but this is better than stripping the string away.

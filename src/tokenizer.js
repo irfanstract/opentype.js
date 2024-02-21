@@ -41,32 +41,35 @@ function ContextChecker(contextName, checkStart, checkEnd) {
 }
 
 /**
- * @typedef ContextParams
- * @type Object
- * @property {array} context context items
- * @property {number} currentIndex current item index
- */
-
-/**
  * Create a context params
- * @param {array} context a list of items
+ * @param {ContextParams["context"] } context a list of items
  * @param {number} currentIndex current item index
  */
 function ContextParams(context, currentIndex) {
+    /** context items @type {any[] } */
     this.context = context;
+    /** @type {number} */
     this.index = currentIndex;
+    /** @type {number} */
     this.length = context.length;
     this.current = context[currentIndex];
+    /** @type {(this["context"][number] )[] } */
     this.backtrack = context.slice(0, currentIndex);
+    /** @type {(this["context"][number] )[] } */
     this.lookahead = context.slice(currentIndex + 1);
+    
+    /** current index @type {number= } */
+    this.currentIndex ;
 }
 
 /**
  * Create an event instance
- * @param {string} eventId event unique id
+ * @param {Event["eventId"] } eventId event unique id
  */
 function Event(eventId) {
+    /** @type {string} */
     this.eventId = eventId;
+    /** @type {{}[] } */
     this.subscribers = [];
 }
 

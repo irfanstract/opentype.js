@@ -2,8 +2,12 @@
  * Query a feature by some of it's properties to lookup a glyph substitution.
  */
 
+import { athrow, assertionFail } from '../athrow.mjs';
+
 import { ContextParams } from '../tokenizer.js';
 import { isTashkeelArabicChar } from '../char.js';
+
+/** @typedef {import('../font.js').Font } Font */
 
 /**
  * Create feature query instance
@@ -15,27 +19,30 @@ function FeatureQuery(font) {
 }
 
 /**
- * @typedef SubstitutionAction
- * @type Object
- * @property {number} id substitution type
- * @property {string} tag feature tag
- * @property {any} substitution substitution value(s)
- */
-
-/**
  * Create a substitution action instance
- * @param {SubstitutionAction} action
+ * @param {SubstitutionAction} [action]
  */
-function SubstitutionAction(action) {
+function SubstitutionAction(action = {}) {
+    /**
+     * substitution type
+     * @type { number }
+     */
     this.id = action.id;
+    /**
+     * feature tag
+     * @type {string }
+     */
     this.tag = action.tag;
+    /**
+     * substitution value(s)
+     */
     this.substitution = action.substitution;
 }
 
 /**
  * Lookup a coverage table
  * @param {number} glyphIndex glyph index
- * @param {CoverageTable} coverage coverage table
+ * @param {CoverageTableEcdTable} coverage coverage table
  */
 function lookupCoverage(glyphIndex, coverage) {
     if (!glyphIndex) return -1;
@@ -62,17 +69,21 @@ function lookupCoverage(glyphIndex, coverage) {
 
 /**
  * Handle a single substitution - format 1
- * @param {ContextParams} contextParams context params to lookup
+ * 
+ * @param {number} glyphIndex glyph
+ * @param {Extract<KtOtjsSupportedOtfGlyphSubstituteTable, { substFormat: 1, } > } subtable
  */
 function singleSubstitutionFormat1(glyphIndex, subtable) {
     let substituteIndex = lookupCoverage(glyphIndex, subtable.coverage);
     if (substituteIndex === -1) return null;
-    return glyphIndex + subtable.deltaGlyphId;
+    return glyphIndex + (subtable.deltaGlyphId ?? athrow(`table doesn't defined 'deltaGlyphId' `) );
 }
 
 /**
  * Handle a single substitution - format 2
- * @param {ContextParams} contextParams context params to lookup
+ * 
+ * @param {number} glyphIndex glyph
+ * @param {Extract<KtOtjsSupportedOtfGlyphSubstituteTable, { substFormat: 2, } > } subtable
  */
 function singleSubstitutionFormat2(glyphIndex, subtable) {
     let substituteIndex = lookupCoverage(glyphIndex, subtable.coverage);
@@ -102,7 +113,10 @@ function lookupCoverageList(coverageList, contextParams) {
 
 /**
  * Handle chaining context substitution - format 3
+ * 
+ * @this {FeatureQuery }
  * @param {ContextParams} contextParams context params to lookup
+ * @param {Extract<KtOtjsSupportedOtfGlyphSubstituteTable, { substFormat: 3, } >} subtable 
  */
 function chainingSubstitutionFormat3(contextParams, subtable) {
     const lookupsCount = (
@@ -112,7 +126,7 @@ function chainingSubstitutionFormat3(contextParams, subtable) {
     );
     if (contextParams.context.length < lookupsCount) return [];
     // INPUT LOOKUP //
-    let inputLookups = lookupCoverageList(
+    const inputLookups = lookupCoverageList(
         subtable.inputCoverage, contextParams
     );
     if (inputLookups === -1) return [];
@@ -124,20 +138,22 @@ function chainingSubstitutionFormat3(contextParams, subtable) {
         lookaheadContext.shift();
     }
     const lookaheadParams = new ContextParams(lookaheadContext, 0);
-    let lookaheadLookups = lookupCoverageList(
+    const lookaheadLookups = lookupCoverageList(
         subtable.lookaheadCoverage, lookaheadParams
     );
+    csfArgHasLength(lookaheadLookups) ;
     // BACKTRACK LOOKUP //
-    let backtrackContext = [].concat(contextParams.backtrack);
+    let backtrackContext = [...contextParams.backtrack ] ;
     backtrackContext.reverse();
     while (backtrackContext.length && isTashkeelArabicChar(backtrackContext[0].char)) {
         backtrackContext.shift();
     }
     if (backtrackContext.length < subtable.backtrackCoverage.length) return [];
     const backtrackParams = new ContextParams(backtrackContext, 0);
-    let backtrackLookups = lookupCoverageList(
+    const backtrackLookups = lookupCoverageList(
         subtable.backtrackCoverage, backtrackParams
     );
+    csfArgHasLength(backtrackLookups) ;
     const contextRulesMatch = (
         inputLookups.length === subtable.inputCoverage.length &&
         lookaheadLookups.length === subtable.lookaheadCoverage.length &&
@@ -145,8 +161,8 @@ function chainingSubstitutionFormat3(contextParams, subtable) {
     );
     let substitutions = [];
     if (contextRulesMatch) {
-        for (let i = 0; i < subtable.lookupRecords.length; i++) {
-            const lookupRecord = subtable.lookupRecords[i];
+        for (const lookupRecord of subtable.lookupRecords )
+        {
             const lookupListIndex = lookupRecord.lookupListIndex;
             const lookupTable = this.getLookupByIndex(lookupListIndex);
             for (let s = 0; s < lookupTable.subtables.length; s++) {
@@ -179,8 +195,15 @@ function chainingSubstitutionFormat3(contextParams, subtable) {
 }
 
 /**
+ * attempts a (sound) assertion `x is { length ?: unknown, }`.
+ * @type {(x: {}) => asserts x is { length ?: unknown, } }
+ */
+function csfArgHasLength(v) {}
+
+/**
  * Handle ligature substitution - format 1
  * @param {ContextParams} contextParams context params to lookup
+ * @param {Extract<KtOtjsSupportedOtfGlyphSubstituteTable, { substFormat: 1, } >} subtable 
  */
 function ligatureSubstitutionFormat1(contextParams, subtable) {
     // COVERAGE LOOKUP //
@@ -189,8 +212,9 @@ function ligatureSubstitutionFormat1(contextParams, subtable) {
     if (ligSetIndex === -1) return null;
     // COMPONENTS LOOKUP
     // (!) note, components are ordered in the written direction.
+    const { ligatureSets = athrow(`missing table 'ligatureSets'.`) } = subtable ;
     let ligature;
-    let ligatureSet = subtable.ligatureSets[ligSetIndex];
+    let ligatureSet = ligatureSets[ligSetIndex];
     for (let s = 0; s < ligatureSet.length; s++) {
         ligature = ligatureSet[s];
         for (let l = 0; l < ligature.components.length; l++) {
@@ -352,11 +376,10 @@ FeatureQuery.prototype.getLookupMethod = function(lookupTable, subtable) {
  */
 
 /**
- * @typedef FQuery
- * @type Object
- * @param {string} tag feature tag
- * @param {string} script feature script
- * @param {ContextParams} contextParams context params
+ * @typedef {Object} FQuery
+ * @property {string} tag feature tag
+ * @property {string} script feature script
+ * @property {ContextParams} contextParams context params
  */
 
 /**

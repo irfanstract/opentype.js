@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { parse } from '../src/opentype.js';
+import { parse } from '../src/opentype_sv.mjs';
 import FeatureQuery from '../src/features/featureQuery.js';
 import { ContextParams } from '../src/tokenizer.js';
 import { readFileSync } from 'fs';

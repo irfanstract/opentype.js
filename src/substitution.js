@@ -1,26 +1,29 @@
 // The Substitution object provides utility methods to manipulate
 // the GSUB substitution table.
 
+import { athrow, asNonNull } from './athrow.mjs';
 import check from './check.js';
 import Layout from './layout.js';
 import { arraysEqual } from './util.js';
 
+/** @typedef {import("./font.js").default } Font */
+
 /**
+ * 
  * @exports opentype.Substitution
- * @class
- * @extends opentype.Layout
- * @param {opentype.Font}
- * @constructor
+ * @extends Layout
  */
-function Substitution(font) {
-    Layout.call(this, font, 'gsub');
+class Substitution extends Layout
+{
+    /** @param {Font} font */
+    constructor(font) { super(font, 'gsub') ; }
 }
 
 // Find the first subtable of a lookup table in a particular format.
 function getSubstFormat(lookupTable, format, defaultSubtable) {
     const subtables = lookupTable.subtables;
-    for (let i = 0; i < subtables.length; i++) {
-        const subtable = subtables[i];
+    for (const [i, subtable] of subtables.entries() )
+    {
         if (subtable.substFormat === format) {
             return subtable;
         }
@@ -32,11 +35,9 @@ function getSubstFormat(lookupTable, format, defaultSubtable) {
     return undefined;
 }
 
-Substitution.prototype = Layout.prototype;
-
 /**
  * Create a default GSUB table.
- * @return {Object} gsub - The GSUB table.
+ * @return gsub - The GSUB table.
  */
 Substitution.prototype.createDefaultTable = function() {
     // Generate a default empty GSUB table with just a DFLT script and dflt lang sys.
@@ -59,27 +60,31 @@ Substitution.prototype.createDefaultTable = function() {
  * @param {string} [script='DFLT']
  * @param {string} [language='dflt']
  * @param {string} feature - 4-character feature name ('aalt', 'salt', 'ss01'...)
- * @return {Array} substitutions - The list of substitutions.
+ * @return substitutions - The list of substitutions.
  */
 Substitution.prototype.getSingle = function(feature, script, language) {
     const substitutions = [];
     const lookupTables = this.getLookupTables(script, language, feature, 1);
-    for (let idx = 0; idx < lookupTables.length; idx++) {
-        const subtables = lookupTables[idx].subtables;
-        for (let i = 0; i < subtables.length; i++) {
-            const subtable = subtables[i];
+    
+    for (const [idx, lookupTable ] of lookupTables.entries() )
+    {
+        const subtables = lookupTable.subtables;
+        for (const [i, subtable] of subtables.entries() )
+        {
             const glyphs = this.expandCoverage(subtable.coverage);
-            let j;
+            
             if (subtable.substFormat === 1) {
                 const delta = subtable.deltaGlyphId;
-                for (j = 0; j < glyphs.length; j++) {
-                    const glyph = glyphs[j];
-                    substitutions.push({ sub: glyph, by: glyph + delta });
+                for (const [j, glyph] of glyphs.entries() )
+                {
+                  substitutions.push({ sub: glyph, by: glyph + delta });
                 }
-            } else {
+            }
+            else {
                 const substitute = subtable.substitute;
-                for (j = 0; j < glyphs.length; j++) {
-                    substitutions.push({ sub: glyphs[j], by: substitute[j] });
+                for (const [j, glyph] of glyphs.entries() )
+                {
+                  substitutions.push({ sub: glyph, by: substitute[j] });
                 }
             }
         }
@@ -92,15 +97,16 @@ Substitution.prototype.getSingle = function(feature, script, language) {
  * @param {string} [script='DFLT']
  * @param {string} [language='dflt']
  * @param {string} feature - 4-character feature name ('ccmp', 'stch')
- * @return {Array} substitutions - The list of substitutions.
+ * @return substitutions - The list of substitutions.
  */
 Substitution.prototype.getMultiple = function(feature, script, language) {
     const substitutions = [];
     const lookupTables = this.getLookupTables(script, language, feature, 2);
-    for (let idx = 0; idx < lookupTables.length; idx++) {
-        const subtables = lookupTables[idx].subtables;
-        for (let i = 0; i < subtables.length; i++) {
-            const subtable = subtables[i];
+    for (const [idx, lookupTable ] of lookupTables.entries() )
+    {
+        const subtables = lookupTable.subtables;
+        for (const [i, subtable] of subtables.entries() )
+        {
             const glyphs = this.expandCoverage(subtable.coverage);
             let j;
 
@@ -119,15 +125,16 @@ Substitution.prototype.getMultiple = function(feature, script, language) {
  * @param {string} [script='DFLT']
  * @param {string} [language='dflt']
  * @param {string} feature - 4-character feature name ('aalt', 'salt'...)
- * @return {Array} alternates - The list of alternates
+ * @return alternates - The list of alternates
  */
 Substitution.prototype.getAlternates = function(feature, script, language) {
     const alternates = [];
     const lookupTables = this.getLookupTables(script, language, feature, 3);
-    for (let idx = 0; idx < lookupTables.length; idx++) {
-        const subtables = lookupTables[idx].subtables;
-        for (let i = 0; i < subtables.length; i++) {
-            const subtable = subtables[i];
+    for (const [idx, lookupTable ] of lookupTables.entries() )
+    {
+        const subtables = lookupTable.subtables;
+        for (const [i, subtable] of subtables.entries() )
+        {
             const glyphs = this.expandCoverage(subtable.coverage);
             const alternateSets = subtable.alternateSets;
             for (let j = 0; j < glyphs.length; j++) {
@@ -144,19 +151,20 @@ Substitution.prototype.getAlternates = function(feature, script, language) {
  * @param {string} feature - 4-letter feature name ('liga', 'rlig', 'dlig'...)
  * @param {string} [script='DFLT']
  * @param {string} [language='dflt']
- * @return {Array} ligatures - The list of ligatures.
+ * @return ligatures - The list of ligatures.
  */
 Substitution.prototype.getLigatures = function(feature, script, language) {
     const ligatures = [];
     const lookupTables = this.getLookupTables(script, language, feature, 4);
-    for (let idx = 0; idx < lookupTables.length; idx++) {
-        const subtables = lookupTables[idx].subtables;
-        for (let i = 0; i < subtables.length; i++) {
-            const subtable = subtables[i];
+    for (const [idx, lookupTable ] of lookupTables.entries() )
+    {
+        const subtables = lookupTable.subtables;
+        for (const [i, subtable] of subtables.entries() )
+        {
             const glyphs = this.expandCoverage(subtable.coverage);
             const ligatureSets = subtable.ligatureSets;
-            for (let j = 0; j < glyphs.length; j++) {
-                const startGlyph = glyphs[j];
+            for (const [j, startGlyph] of glyphs.entries() )
+            {
                 const ligSet = ligatureSets[j];
                 for (let k = 0; k < ligSet.length; k++) {
                     const lig = ligSet[k];
@@ -171,11 +179,13 @@ Substitution.prototype.getLigatures = function(feature, script, language) {
     return ligatures;
 };
 
+/** @typedef {{ sub: number[] | number, by: number[] } | { sub: number[] | number, by: number } } SbsSubstitutionArg */
+
 /**
  * Add or modify a single substitution (lookup type 1)
  * Format 2, more flexible, is always used.
  * @param {string} feature - 4-letter feature name ('liga', 'rlig', 'dlig'...)
- * @param {Object} substitution - { sub: id, by: id } (format 1 is not supported)
+ * @param {SbsSubstitutionArg} substitution - { sub: id, by: id } (format 1 is not supported)
  * @param {string} [script='DFLT']
  * @param {string} [language='dflt']
  */
@@ -200,7 +210,7 @@ Substitution.prototype.addSingle = function(feature, substitution, script, langu
 /**
  * Add or modify a multiple substitution (lookup type 2)
  * @param {string} feature - 4-letter feature name ('ccmp', 'stch')
- * @param {Object} substitution - { sub: id, by: [id] } for format 2.
+ * @param {SbsSubstitutionArg} substitution - { sub: id, by: [id] } for format 2.
  * @param {string} [script='DFLT']
  * @param {string} [language='dflt']
  */
@@ -226,7 +236,7 @@ Substitution.prototype.addMultiple = function(feature, substitution, script, lan
 /**
  * Add or modify an alternate substitution (lookup type 3)
  * @param {string} feature - 4-letter feature name ('liga', 'rlig', 'dlig'...)
- * @param {Object} substitution - { sub: id, by: [ids] }
+ * @param {SbsSubstitutionArg & { by: {}[] } } substitution - { sub: id, by: [ids] }
  * @param {string} [script='DFLT']
  * @param {string} [language='dflt']
  */
@@ -252,21 +262,20 @@ Substitution.prototype.addAlternate = function(feature, substitution, script, la
  * Add a ligature (lookup type 4)
  * Ligatures with more components must be stored ahead of those with fewer components in order to be found
  * @param {string} feature - 4-letter feature name ('liga', 'rlig', 'dlig'...)
- * @param {Object} ligature - { sub: [ids], by: id }
+ * @param {SbsSubstitutionArg & { sub: {}[] } } ligature - { sub: [ids], by: id }
  * @param {string} [script='DFLT']
  * @param {string} [language='dflt']
  */
 Substitution.prototype.addLigature = function(feature, ligature, script, language) {
-    const lookupTable = this.getLookupTables(script, language, feature, 4, true)[0];
-    let subtable = lookupTable.subtables[0];
-    if (!subtable) {
-        subtable = {                // lookup type 4 subtable, format 1, coverage format 1
+    const lookupTable = this.getLookupTables(script, language, feature, 4, true)[0] ?? athrow(`missing table for: ${JSON.stringify({ script, language, feature }) }`) ;
+    /** @type {KtOtfGSubtable} */
+    let subtable = (
+        lookupTable.subtables[0] ??= {                // lookup type 4 subtable, format 1, coverage format 1
             substFormat: 1,
             coverage: { format: 1, glyphs: [] },
             ligatureSets: []
-        };
-        lookupTable.subtables[0] = subtable;
-    }
+        }
+    );
     check.assert(subtable.coverage.format === 1, 'Ligature: unable to modify coverage table format ' + subtable.coverage.format);
     const coverageGlyph = ligature.sub[0];
     const ligComponents = ligature.sub.slice(1);
@@ -299,7 +308,7 @@ Substitution.prototype.addLigature = function(feature, ligature, script, languag
  * @param {string} feature - 4-letter feature name
  * @param {string} [script='DFLT']
  * @param {string} [language='dflt']
- * @return {Array} substitutions - The list of substitutions.
+ * @return substitutions - The list of substitutions.
  */
 Substitution.prototype.getFeature = function(feature, script, language) {
     if (/ss\d\d/.test(feature)) {
@@ -327,7 +336,7 @@ Substitution.prototype.getFeature = function(feature, script, language) {
 /**
  * Add a substitution to a feature for a given script and language.
  * @param {string} feature - 4-letter feature name
- * @param {Object} sub - the substitution to add (an object like { sub: id or [ids], by: id or [ids] })
+ * @param {SbsSubstitutionArg} sub - the substitution to add (an object like { sub: id or [ids], by: id or [ids] })
  * @param {string} [script='DFLT']
  * @param {string} [language='dflt']
  */

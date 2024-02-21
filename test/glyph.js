@@ -1,5 +1,5 @@
 import assert  from 'assert';
-import { parse, Glyph, Path } from '../src/opentype.js';
+import { parse, Glyph, Path } from '../src/opentype_sv.mjs';
 import { readFileSync } from 'fs';
 const loadSync = (url, opt) => parse(readFileSync(url), opt);
 
@@ -117,6 +117,7 @@ describe('glyph.js', function() {
                 flipYBase: font.ascender + font.descender
             };
             glyph.fromSVG(trianglePathUp, flipOption);
+            assert.deepStrictEqual({ ...glyph.path.getBoundingBox() } , {x1: 182, y1: 320, x2: 318, y2: 457} ) ;
             assert.equal(glyph.path.toPathData({flipY: false}), trianglePathDown);
             assert.equal(glyph.toPathData(flipOption), trianglePathUp);
         });

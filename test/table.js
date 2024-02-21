@@ -3,7 +3,7 @@ import { unhexArray } from './testutil.js';
 import table from '../src/table.js';
 
 describe('table.js', function() {
-    it('should make a ScriptList table', function() {
+    it('should make a ScriptListEcdTable table', function() {
         // https://www.microsoft.com/typography/OTSPEC/chapter2.htm Examples 1 & 2
         const expectedData = unhexArray(
             '0003 68616E69 0014 6B616E61 0020 6C61746E 002E' +  // Example 1 (hani, kana, latn)
@@ -14,7 +14,7 @@ describe('table.js', function() {
             '0000 0003 0003 0000 0001 0002'                     // UrduLangSys
         );
 
-        assert.deepEqual(new table.ScriptList([
+        assert.deepEqual(new table.ScriptListEcdTable([
             { tag: 'hani', script: {
                 defaultLangSys: {
                     reserved: 0,
@@ -54,7 +54,7 @@ describe('table.js', function() {
             '0000 0001 0000 0001 0000 0001 0002 0001 0000 0002 0001 0001 0000' +
             '0000 0000 0002 0002 0000 0000 0001 0000 0000 0000 0000 0002 0001'
         );
-        assert.deepEqual(new table.ClassDef({
+        assert.deepEqual(new table.ClassDefEcdTable({
             format: 1,
             startGlyph: 0x32,
             classes: [
@@ -70,7 +70,7 @@ describe('table.js', function() {
             '0002 0003 0030 0031 0002 0040 0041 0003 00D2 00D3 0001'
         );
 
-        assert.deepEqual(new table.ClassDef({
+        assert.deepEqual(new table.ClassDefEcdTable({
             format: 2,
             ranges: [
                 { start: 0x30, end: 0x31, classId: 2 },

@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { Font, Path, Glyph, parse, load} from '../../src/opentype.js';
+import { Font, Path, Glyph, parse, load} from '../../src/opentype_sv.mjs';
 import { readFileSync } from 'fs';
 const loadSync = (url, opt) => parse(readFileSync(url), opt);
 
