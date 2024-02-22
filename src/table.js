@@ -19,7 +19,7 @@
 
 
 
-import { athrow, anonnull } from "./athrow.mjs";
+import { athrow, asNonNull } from "./athrow.mjs";
 import check from './check.js';
 
 
@@ -345,3 +345,13 @@ export default {
     tableList,
     recordList,
 };
+
+export {
+  //
+  Table,
+  Coverage,
+  ClassDef,
+  ScriptList,
+  FeatureList,
+  LookupList,
+} ;

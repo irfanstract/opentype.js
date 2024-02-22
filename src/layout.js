@@ -1,6 +1,10 @@
 // The Layout object is the prototype of Substitution objects, and provides
 // utility methods to manipulate common layout tables (GPOS, GSUB, GDEF...)
 
+import { athrow, } from './athrow.mjs';
+
+import { Table, ClassDef, Coverage } from './table.js';
+
 import check from './check.js';
 
 function searchTag(arr, tag) {
@@ -63,6 +67,8 @@ function searchRange(ranges, value) {
 /**
  * @exports opentype.Layout
  * @class
+ * @param {import("./font.js").default } font
+ * @param {string} tableName table name
  */
 function Layout(font, tableName) {
     this.font = font;
@@ -142,7 +148,7 @@ Layout.prototype = {
      * @instance
      * @param {string} [script='DFLT']
      * @param {boolean} create - forces the creation of this script table if it doesn't exist.
-     * @return {Object} An object with tag and script properties.
+     * @return {any} An object with tag and script properties.
      */
     getScriptTable: function(script, create) {
         const layout = this.getTable(create);
@@ -275,7 +281,7 @@ Layout.prototype = {
     /**
      * Find a glyph in a class definition table
      * https://docs.microsoft.com/en-us/typography/opentype/spec/chapter2#class-definition-table
-     * @param {object} classDefTable - an OpenType Layout class definition table
+     * @param {Table} classDefTable - an OpenType Layout class definition table
      * @param {number} glyphIndex - the index of the glyph to find
      * @returns {number} -1 if not found
      */
@@ -292,12 +298,13 @@ Layout.prototype = {
                 return range ? range.classId : 0;
             }
         }
+        return athrow(`unsupported format ${classDefTable.format} `) ;
     },
 
     /**
      * Find a glyph in a coverage table
      * https://docs.microsoft.com/en-us/typography/opentype/spec/chapter2#coverage-table
-     * @param {object} coverageTable - an OpenType Layout coverage table
+     * @param {Table} coverageTable - an OpenType Layout coverage table
      * @param {number} glyphIndex - the index of the glyph to find
      * @returns {number} -1 if not found
      */
@@ -312,6 +319,7 @@ Layout.prototype = {
                 return range ? range.index + glyphIndex - range.start : -1;
             }
         }
+        return athrow(`unsupported format ${coverageTable.format} `) ;
     },
 
     /**

@@ -1,9 +1,15 @@
 // The Glyph object
 
+import { athrow, } from './athrow.mjs';
+
 import check from './check.js';
 import draw from './draw.js';
 import Path from './path.js';
 // import glyf from './tables/glyf' Can't be imported here, because it's a circular dependency
+
+// import Font from './font.js';
+/** @typedef {import("./font.js").default } Font */
+import BoundingBox from './bbox.js';
 
 function getPathDefinition(glyph, path) {
     let _path = path || new Path();
@@ -25,8 +31,7 @@ function getPathDefinition(glyph, path) {
 }
 
 /**
- * @typedef GlyphOptions
- * @type Object
+ * @typedef {Object} GlyphOptions
  * @property {string} [name] - The glyph name
  * @property {number} [unicode]
  * @property {Array} [unicodes]
@@ -36,6 +41,8 @@ function getPathDefinition(glyph, path) {
  * @property {number} [yMax]
  * @property {number} [advanceWidth]
  * @property {number} [leftSideBearing]
+ * 
+ * @property {Path} [path]
  */
 
 // A Glyph is an individual mark that often corresponds to a character.
@@ -44,19 +51,32 @@ function getPathDefinition(glyph, path) {
 //
 // The `Glyph` class contains utility methods for drawing the path and its points.
 /**
- * @exports opentype.Glyph
+ * @exports Glyph
  * @class
- * @param {GlyphOptions}
+ * @param {GlyphOptions} options
  * @constructor
  */
 function Glyph(options) {
     // By putting all the code on a prototype function (which is only declared once)
     // we reduce the memory requirements for larger fonts by some 2%
     this.bindConstructorValues(options);
+
+    /** these relies on having been initialised via {@link this.bindConstructorValues} ! */
+
+    /** @type {Path } */
+    this.path ;
+    /** @type {{ x: number ; y: number ; }[] } */
+    this.points ;
+    /** @type {{}[] } */
+    this.glyphs ;
+    /** @type {GlyphOptions["unicodes"] & {} } */
+    this.unicodes ;
+
 }
 
 /**
- * @param  {GlyphOptions}
+ * 
+ * @param  {GlyphOptions} options
  */
 Glyph.prototype.bindConstructorValues = function(options) {
     this.index = options.index || 0;
@@ -109,7 +129,7 @@ Glyph.prototype.bindConstructorValues = function(options) {
 };
 
 /**
- * @param {number}
+ * @param {number} unicode
  */
 Glyph.prototype.addUnicode = function(unicode) {
     if (this.unicodes.length === 0) {
@@ -121,7 +141,7 @@ Glyph.prototype.addUnicode = function(unicode) {
 
 /**
  * Calculate the minimum bounding box for this glyph.
- * @return {opentype.BoundingBox}
+ * @return {BoundingBox}
  */
 Glyph.prototype.getBoundingBox = function() {
     return this.path.getBoundingBox();
@@ -132,21 +152,23 @@ Glyph.prototype.getBoundingBox = function() {
  * @param  {number} [x=0] - Horizontal position of the beginning of the text.
  * @param  {number} [y=0] - Vertical position of the *baseline* of the text.
  * @param  {number} [fontSize=72] - Font size in pixels. We scale the glyph units by `1 / unitsPerEm * fontSize`.
- * @param  {Object=} options - xScale, yScale to stretch the glyph.
- * @param  {opentype.Font} if hinting is to be used, the font
- * @return {opentype.Path}
+ * @param  {{ xScale?: number, yScale?: number, hinting?: boolean, }} [options] - xScale, yScale to stretch the glyph.
+ * @param  {Font} [font] if hinting is to be used, the font
+ * @return {Path}
  */
 Glyph.prototype.getPath = function(x, y, fontSize, options, font) {
     x = x !== undefined ? x : 0;
     y = y !== undefined ? y : 0;
     fontSize = fontSize !== undefined ? fontSize : 72;
+    /** @type {Path["commands"] } */
     let commands;
-    let hPoints;
-    if (!options) options = { };
+    options ??= { };
     let xScale = options.xScale;
     let yScale = options.yScale;
     const scale = 1 / (this.path.unitsPerEm || 1000) * fontSize;
 
+    ;
+    let hPoints;
     if (options.hinting && font && font.hinting) {
         // in case of hinting, the hinting engine takes care
         // of scaling the points (not the path) before hinting.
@@ -172,8 +194,8 @@ Glyph.prototype.getPath = function(x, y, fontSize, options, font) {
     p.fill = this.path.fill;
     p.stroke = this.path.stroke;
     p.strokeWidth = this.path.strokeWidth * scale;
-    for (let i = 0; i < commands.length; i += 1) {
-        const cmd = commands[i];
+    for (const cmd of commands)
+    {
         if (cmd.type === 'M') {
             p.moveTo(x + (cmd.x * xScale), y + (-cmd.y * yScale));
         } else if (cmd.type === 'L') {
@@ -206,8 +228,8 @@ Glyph.prototype.getContours = function() {
 
     const contours = [];
     let currentContour = [];
-    for (let i = 0; i < this.points.length; i += 1) {
-        const pt = this.points[i];
+    for (const pt of this.points )
+    {
         currentContour.push(pt);
         if (pt.lastPointOfContour) {
             contours.push(currentContour);
@@ -227,8 +249,8 @@ Glyph.prototype.getMetrics = function() {
     const commands = this.path.commands;
     const xCoords = [];
     const yCoords = [];
-    for (let i = 0; i < commands.length; i += 1) {
-        const cmd = commands[i];
+    for (const cmd of commands )
+    {
         if (cmd.type !== 'Z') {
             xCoords.push(cmd.x);
             yCoords.push(cmd.y);
@@ -245,31 +267,29 @@ Glyph.prototype.getMetrics = function() {
         }
     }
 
-    const metrics = {
-        xMin: Math.min.apply(null, xCoords),
-        yMin: Math.min.apply(null, yCoords),
-        xMax: Math.max.apply(null, xCoords),
-        yMax: Math.max.apply(null, yCoords),
-        leftSideBearing: this.leftSideBearing
-    };
+    const metrics = (() => {
+        ;
+        /** @type {number} */ let xMin = Math.min(...xCoords) ;
+        /** @type {number} */ let yMin = Math.min(...yCoords) ;
+        /** @type {number} */ let xMax = Math.max(...xCoords) ;
+        /** @type {number} */ let yMax = Math.max(...yCoords) ;
 
-    if (!isFinite(metrics.xMin)) {
-        metrics.xMin = 0;
-    }
+        const {
+            leftSideBearing = athrow(`missing 'leftSideBearing'`),
+            advanceWidth    = athrow(`missing 'advanceWidth'`),
+        } = this ;
 
-    if (!isFinite(metrics.xMax)) {
-        metrics.xMax = this.advanceWidth;
-    }
+        if (!isFinite(xMin) ) { xMin = 0 ; }
+        if (!isFinite(xMax) ) { xMax = advanceWidth ; }
 
-    if (!isFinite(metrics.yMin)) {
-        metrics.yMin = 0;
-    }
+        if (!isFinite(yMin) ) { yMin = 0 ; }
+        if (!isFinite(yMax) ) { yMax = 0 ; }
 
-    if (!isFinite(metrics.yMax)) {
-        metrics.yMax = 0;
-    }
+        const rightSideBearing = advanceWidth - leftSideBearing - (xMax - xMin) ;
 
-    metrics.rightSideBearing = this.advanceWidth - metrics.leftSideBearing - (metrics.xMax - metrics.xMin);
+        return { xMin, xMax,  yMin, yMax, leftSideBearing, rightSideBearing } ;
+    })() ;
+
     return metrics;
 };
 
@@ -294,11 +314,19 @@ Glyph.prototype.draw = function(ctx, x, y, fontSize, options) {
  * @param  {number} [fontSize=72] - Font size in pixels. We scale the glyph units by `1 / unitsPerEm * fontSize`.
  */
 Glyph.prototype.drawPoints = function(ctx, x, y, fontSize) {
+    /**
+     * @param {Array<{ x: number ; y: number ; }> } l
+     * @param {number} x 
+     * @param {number} y
+     * @param {number} scale
+     * @returns {void}
+     */
     function drawCircles(l, x, y, scale) {
         ctx.beginPath();
-        for (let j = 0; j < l.length; j += 1) {
-            ctx.moveTo(x + (l[j].x * scale), y + (l[j].y * scale));
-            ctx.arc(x + (l[j].x * scale), y + (l[j].y * scale), 2, 0, Math.PI * 2, false);
+        for (const pt of l )
+        {
+            ctx.moveTo(x + (pt.x * scale), y + (pt.y * scale));
+            ctx.arc(x + (pt.x * scale), y + (pt.y * scale), 2, 0, Math.PI * 2, false);
         }
 
         ctx.closePath();
@@ -310,11 +338,13 @@ Glyph.prototype.drawPoints = function(ctx, x, y, fontSize) {
     fontSize = fontSize !== undefined ? fontSize : 24;
     const scale = 1 / this.path.unitsPerEm * fontSize;
 
+    /** @type {Array<{ x: number ; y: number ; }> } */
     const blueCircles = [];
+    /** @type {Array<{ x: number ; y: number ; }> } */
     const redCircles = [];
     const path = this.path;
-    for (let i = 0; i < path.commands.length; i += 1) {
-        const cmd = path.commands[i];
+    for (const cmd of path.commands )
+    {
         if (cmd.x !== undefined) {
             blueCircles.push({x: cmd.x, y: -cmd.y});
         }
@@ -389,8 +419,9 @@ Glyph.prototype.toPathData = function(options) {
 
 /**
  * Sets the path data from an SVG path element or path notation
- * @param  {string|SVGPathElement}
- * @param  {object}
+ * 
+ * @param  {string|SVGPathElement } pathData
+ * @param  {object} options
  */
 Glyph.prototype.fromSVG = function(pathData, options = {}) {
     return this.path.fromSVG(pathData, options);
@@ -398,6 +429,7 @@ Glyph.prototype.fromSVG = function(pathData, options = {}) {
 
 /**
  * Convert the Glyph's Path to an SVG <path> element, as a string.
+ * 
  * @param  {object|number} [options={decimalPlaces:2, optimize:true}] - Options object (or amount of decimal places for floating-point values for backwards compatibility)
  * @return {string}
  */
@@ -407,6 +439,7 @@ Glyph.prototype.toSVG = function(options) {
 
 /**
  * Convert the path to a DOM element.
+ * 
  * @param  {object|number} [options={decimalPlaces:2, optimize:true}] - Options object (or amount of decimal places for floating-point values for backwards compatibility)
  * @return {SVGPathElement}
  */

@@ -5,6 +5,8 @@
 
 import { athrow, } from './athrow.mjs';
 
+import { reiterableBy, } from './itertools.mjs';
+
 import { roundDecimal, } from './decimalnumbers.mjs';
 
 
@@ -33,6 +35,7 @@ import BoundingBox from './bbox.js';
  * @satisfies {(...args: [GpsbSplineSegmentCoord[] ] ) => unknown }
  */
 const optimizeCommands = function (commands) {
+  {
     // separate subpaths
     /** @type {(any)[] } */
     let subpaths = [[]];
@@ -72,7 +75,8 @@ const optimizeCommands = function (commands) {
     }
     commands = [].concat.apply([], subpaths); // flatten again
     return commands;
-}
+  }
+} ;
 
 /**
  * @typedef {{ [k: string]: unknown ; decimalPlaces?: number ; flipYBase ?: number ; flipY ?: unknown ; x ?: number ; }} SVGParsingOptions
@@ -85,6 +89,7 @@ const optimizeCommands = function (commands) {
  */
 function createSVGParsingOptions(options)
 {
+  {
     const defaultOptions = {
         decimalPlaces: 2,
         optimize: true,
@@ -96,6 +101,7 @@ function createSVGParsingOptions(options)
     };
     const newOptions = Object.assign({}, defaultOptions, options);
     return newOptions;
+  }
 }
 
 /**
@@ -139,11 +145,30 @@ function createSVGOutputOptions(optionsArg)
   return newOptions;
 }
 
+const pathDataFromArg = /** @type {(d: string | SVGPathElement | RegExp) => string } */ function (pathDataArg) {
+  ;
+  
+  // TODO
+  if ((typeof pathDataArg === "object") && (!!pathDataArg ) ) {
+    ;
+    if ((typeof SVGPathElement !== "undefined") && (pathDataArg instanceof SVGPathElement)) {
+      return pathDataArg.getAttribute('d') ?? athrow(`[GPolySplineBuffer.fromSVG] [pathData] attribute not defined`) ;
+    }
+  }
+  if (typeof pathDataArg ==="string" ) {
+    return pathDataArg ;
+  }
+  throw new TypeError(`'pathDataArg': ${pathDataArg } `) ;
+} ;
+
 
 
 
 /**
- * describes a sequence of path commands similar to a SVG path.
+ * a multi-segment spline,
+ * each being straight-line or (uni-curvature) curve
+ * 
+ * use {@link fromSVG} to construct from SVG `<path>` `d` values.
  * 
  */
 class GPolySplineDesc
@@ -167,49 +192,186 @@ class GPolySplineDesc
 }
 
 /**
+ * @typedef {Pick<GPolySplineDesc, "commands" | "fill" | "stroke" | "strokeWidth"> } GPolySplineDescInt
+ * 
+ */
+
+/**
+ * 
+ * @type {(a: Partial<GPolySplineDescInt> ) => GPolySplineDesc } c
+ */
+GPolySplineDesc.prototype.derived = function (c) {
+  return {
+    // @ts-ignore
+    __proto__ : GPolySplineDesc.prototype ,
+    ...this ,
+    ...c ,
+  } ;
+} ;
+
+/**
  * 
  * @param {GPolySplineDesc["commands"] } c
  */
 GPolySplineDesc.prototype.withAddedCommands = function (c) {
-  return {
-    __proto__ : GPolySplineDesc.prototype ,
-    ...this ,
-    commands: this.commands.concat(c) ,
-  } ;
+  return this.derived({ commands: [...this.commands , ...c ] , }) ;
 } ;
 
-// TODO 
-/**
- * the path data from an SVG path element or path notation .
- * 
- * @type {(...args: [pathData: Required<Parameters<typeof pathDataFromArg > >[0] , options?: SVGParsingOptions ] ) => GPolySplineDesc }
- */
-GPolySplineDesc.fromSVG = function (pathDataArg, options = {}) {
-  ;
-
-  return athrow() ;
-} ;
-
-const pathDataFromArg = /** @type {(d: string | SVGPathElement | RegExp) => string } */ function (pathDataArg) {
-  ;
+// // TODO 
+// /**
+//  * the path data from an SVG path element or path notation .
+//  * 
+//  * @type {(...args: [pathData: Required<Parameters<typeof pathDataFromArg > >[0] , options?: SVGParsingOptions ] ) => GPolySplineDesc }
+//  */
+// GPolySplineDesc.fromSVG = function (pathDataArg, optionsArg = {}) {
+//   ;
   
-  // TODO
-  if ((typeof pathDataArg === "object") && (!!pathDataArg ) ) {
-    ;
-    if ((typeof SVGPathElement !== "undefined") && (pathDataArg instanceof SVGPathElement)) {
-      return pathDataArg.getAttribute('d') ?? athrow(`[GPolySplineBuffer.fromSVG] [pathData] attribute not defined`) ;
-    }
-  }
-  if (typeof pathDataArg ==="string" ) {
-    return pathDataArg ;
-  }
-  throw new TypeError(`'pathDataArg': ${pathDataArg } `)
-} ;
+//   /** @type {string} */
+//   const pathData = pathDataFromArg(pathDataArg) ;
+
+//   // set/merge default options
+//   const options = createSVGParsingOptions(optionsArg);
+  
+//   const {
+//     numericChars ,
+//     signChars ,
+//     supportedCommands ,
+//     unsupportedCommands ,
+//   } = GpsbSvgDPredef ;
+
+//   /** @typedef {{ buffer: readonly string [] ; lastCmd?: GpsbSplineSegmentCoord["type"] ; } } ParsingState */
+
+//   /** @typedef {{ commands: readonly GpsbSplineSegmentCoord[] ; } } S2 */
+
+//   return (
+//     (Array.from((
+//       reiterableBy(/** @satisfies {() => Iterable<{ type: "input-char", value: string ; } | { type: "apply-setting" } > } */ (function * () {
+//         ;
+        
+//         for (const [token, charIndex] of (
+//           Array.from(pathData )
+//           .map((chr, i) => /** @type {[String, (ReadonlyArray<unknown>)["length"] ]} */ ([chr, i]) )
+//         ) )
+//         { yield { type: "input-char", value: token } ; }
+
+//         yield { type: "apply-setting" } ;
+//       }) )
+//     )) )
+//     .reduce((
+//       /**
+//        * @param {ParsingState} prevState
+//        *  */
+//       (prevState, c) => {
+//         ;
+
+//         const U = /** @type {(opts: { lU: (a: string) => string ; lastCmd: (ParsingState["lastCmd"] & {}) ; } ) => ParsingState } */ ({ lU: tokenBy, lastCmd }) => ({
+//           buffer: (
+//             prevState.buffer
+//             .map((v, i, s) => (
+//               (i + 1 === s.length ) ?
+//               tokenBy(v) : v
+//             ))
+//           ) ,
+//           lastCmd: lastCmd ,
+//         }) ;
+//         const A = /** @type {(opts: { lU: () => string ; lastCmd: (ParsingState["lastCmd"] & {}) ; } ) => ParsingState } */ ({ lU: tokenBy, lastCmd }) => ({
+//           buffer: (
+//             prevState.buffer
+//             .concat([tokenBy() ])
+//           ) ,
+//           lastCmd: lastCmd ,
+//         }) ;
+
+//         const throwUnexpectedInputException = () => athrow(`unexpected input`) ;
+        
+//         const throwLogicTodoException = () => athrow(`TODO`) ;
+        
+//         if (c.type === "input-char" ) {
+//           const { value: token, } = c ;
+
+//           const { lastCmd: precedingCmd = false, buffer: lastBuffer, } = prevState ;
+
+//           if (numericChars.indexOf(token) > -1) {
+//             ;
+//             ;
+//             if (numericChars.indexOf(token) > -1) {
+//               return U({ lU: s => (s + token) , lastCmd: throwLogicTodoException() }) ;
+//             }
+//             if (signChars.indexOf(token) > -1)
+//             {
+//               // if (!command.type && !this.commands.length) {
+//               //     command.type = 'L';
+//               // }
+
+//               const cmdt = precedingCmd || (
+//                 // TODO 'this.commands.length'
+//                 false && "L"
+//               ) ;
+
+//               if (token === '-') {
+//                   if (!cmdt || lastBuffer.indexOf('-') > 0) {
+//                       return throwUnexpectedInputException() ;
+//                   } else if (lastBuffer.length) {
+//                       return A({ lU: () => '-', lastCmd: throwLogicTodoException() }) ;
+//                   } else {
+//                       return U({ lU: _ => token, lastCmd: throwLogicTodoException() }) ;
+//                   }
+//               } else {
+//                   if (!cmdt || lastBuffer.length > 0) {
+//                       return throwUnexpectedInputException() ;
+//                   } else {
+//                       return prevState ;
+//                   }
+//               }
+//             }
+//             // if (supportedCommands.indexOf(token) > -1) {
+//             //     if (command.type) {
+//             //         applyCommand.apply(this);
+//             //         command = { type: token };
+//             //     } else {
+//             //         command.type = token;
+//             //     }
+//             // }
+//             // if (unsupportedCommands.indexOf(token) > -1) {
+//             //   // TODO: try to interpolate commands not directly supported?
+//             //   return athrow(`Unsupported path command: ${token }. Currently supported commands are ${supportedCommands.split('').join(', ') }.`) ;
+    
+//             //   ;
+//             // }
+//             if (' ,\t\n\r\f\v'.indexOf(token) > -1) {
+//               return (
+//                 A({ lU: () => '', lastCmd: throwLogicTodoException() })
+//               ) ;
+    
+//               ;
+//             }
+//             if (token === '.') {
+//                 if (!precedingCmd || lastBuffer.indexOf(token) > -1) {
+//                     return throwUnexpectedInputException() ;
+//                 } else {
+//                   return U({ lU: s => (s + token) , lastCmd: throwLogicTodoException() }) ;
+//                 }
+//             }
+//             {
+//               return throwUnexpectedInputException() ;
+//             }
+//           }
+//         }
+
+//         return athrow(`illegal character`) ;
+//       }
+//     ) , /** @satisfies {ParsingState} */ (athrow() ) )
+//   ) ;
+// } ;
 
 /**
- * a mutable list of path commands similar to a SVG path.
+ * MUTABLE
+ * multi-segment spline,
+ * each being straight-line or (uni-curvature) curve
  * 
- * Paths can be drawn on a context using `draw`.
+ * use {@link fromSVG} to construct from SVG `<path>` `d` values.
+ * 
+ * Paths can be drawn on a context using {@link draw } .
  * 
  * @exports opentype.GPolySplineBuffer
  */
@@ -230,6 +392,26 @@ class GPolySplineBuffer
   }
 }
 
+const GpsbSvgDPredef = (() => {
+  ;
+
+  // TODO: a generator function could possibly increase performance and reduce memory usage,
+  // but our current build process doesn't allow to use those yet.
+  const numericChars = Array.from('0123456789') ;
+  const supportedCommands = Array.from('MmLlQqCcZzHhVv') ;
+  const unsupportedCommands = Array.from('SsTtAa') ;
+  const signChars = Array.from('-+') ;
+
+  return {
+    //
+    numericChars ,
+    supportedCommands ,
+    unsupportedCommands ,
+    signChars ,
+
+  } ;
+})() ;
+
 /**
  * Sets the path data from an SVG path element or path notation
  * 
@@ -246,10 +428,13 @@ GPolySplineBuffer.prototype.fromSVG = function(pathDataArg, options = {}) {
 
     // TODO: a generator function could possibly increase performance and reduce memory usage,
     // but our current build process doesn't allow to use those yet.
-    const number = '0123456789';
-    const supportedCommands = 'MmLlQqCcZzHhVv';
-    const unsupportedCommands = 'SsTtAa';
-    const sign = '-+';
+
+    const {
+      numericChars ,
+      signChars ,
+      supportedCommands ,
+      unsupportedCommands ,
+    } = GpsbSvgDPredef ;
 
     /** @typedef {readonly string[] } XCmFCs */
 
@@ -257,17 +442,33 @@ GPolySplineBuffer.prototype.fromSVG = function(pathDataArg, options = {}) {
     /** @type { XCmFCs } */
     let buffer = [''];
 
-    const appendIntoBuffer = /** @type { (addend: (typeof buffer)[number] ) => void } */ (token) => {
+    /**
+     * copy-on-write-add it as a new item, at the end, of the list.
+     * @type { (addend: (typeof buffer)[number] ) => void }
+     */
+    const appendIntoBuffer = (token) => {
       buffer = [...buffer , token ] ;
     } ;
-    const complaceLastItemOfBuffer = /** @type { (addend: (typeof buffer)[number] ) => void } */ (token) => {
+    /**
+     * like {@link replaceLastItemOfBuffer} but here prepends the existing item, not totally replace ;
+     * `[z, c, moveTo]` becomes `[z, c, moveTo<<Cubic>>]`
+     * 
+     * @type { (addend: (typeof buffer)[number] ) => void }
+     */
+    const complaceLastItemOfBuffer = (token) => {
       buffer = [...buffer.slice(0, buffer.length + -1 ) , buffer[buffer.length + -1 ] + token ] ;
     } ;
-    const replaceLastItemOfBuffer = /** @type { (addend: (typeof buffer)[number] ) => void } */ (token) => {
+    /**
+     * copy-on-write-replace the last item of the list ;
+     * `[z, c, moveTo]` becomes `[z, c, <<Cubic>>]`
+     * 
+     * @type { (addend: (typeof buffer)[number] ) => void }
+     */
+    const replaceLastItemOfBuffer = (token) => {
       buffer = [...buffer.slice(0, buffer.length + -1 ) , token ] ;
     } ;
 
-    let isUnexpected = false;
+    let metUnexpected = false;
 
     /** @satisfies {(...args: [XCmFCs ] ) => unknown } */
     const parseBuffer = function (buffer) {
@@ -278,7 +479,7 @@ GPolySplineBuffer.prototype.fromSVG = function(pathDataArg, options = {}) {
             }
             return float;
         });
-    }
+    } ;
     
     /** @satisfies {(this: GPolySplineBuffer, ...args: [Array<any> ] ) => unknown } */
     const makeRelative = function (buffer) {
@@ -290,7 +491,7 @@ GPolySplineBuffer.prototype.fromSVG = function(pathDataArg, options = {}) {
             buffer[i] += lastCommand[i & 1 ? 'y' : 'x'];
         }
         return buffer;
-    }
+    } ;
 
     /** @satisfies {(this: GPolySplineBuffer, ...args: [] ) => unknown } */
     const applyCommand = function () {
@@ -329,7 +530,7 @@ GPolySplineBuffer.prototype.fromSVG = function(pathDataArg, options = {}) {
             commandType ,
             relative ,
             parsedBuffer ,
-        } = cParsed
+        } = cParsed ;
 
         const getLastCmd        = () => this.getLastCmd() ;
         const getLastXyOrZeroes = () => this.getLastXyOrZeroes() ;
@@ -338,8 +539,13 @@ GPolySplineBuffer.prototype.fromSVG = function(pathDataArg, options = {}) {
 
         const throwSwcmdAssertionError = () => {
           return athrow(`[GPolySplineBuffer.fromSVG] [applyCommand] [switch (commandType) ] assertionFailed `) ;
-        }
+        } ;
         switch (commandType) {
+            /**
+             * @todo
+             * for consecutive `L`s the letter can be omitted, can't it?
+             * 
+             */
             case 'M':
                 this.moveTo(...parsedBuffer);
                 break; 
@@ -386,21 +592,27 @@ GPolySplineBuffer.prototype.fromSVG = function(pathDataArg, options = {}) {
                 }
             }
         }
-    }
+    } ;
 
-    for (let i = 0; i < pathData.length; i++) {
-        const token = pathData.charAt(i);
+    // const [token, i] of Array.from(pathData ).map((chr, i) => /** @type {const} */ ([chr, i]) )
+    for (const [token, i] of (
+      Array.from(pathData )
+      .map((chr, i) => /** @type {const} */ ([chr, i]) )
+    ) )
+    {
+      {
         const lastBuffer = buffer[buffer.length - 1] ?? athrow(`[GPolySplineBuffer.fromSVG] [lastBuffer] null-assertion failed`) ;
-        if (number.indexOf(token) > -1) {
+
+        if (numericChars.indexOf(token) > -1) {
           complaceLastItemOfBuffer(token ) ;
-        } else if (sign.indexOf(token) > -1) {
+        } else if (signChars.indexOf(token) > -1) {
             if (!command.type && !this.commands.length) {
                 command.type = 'L';
             }
 
             if (token === '-') {
                 if (!command.type || lastBuffer.indexOf('-') > 0) {
-                    isUnexpected = true;
+                    metUnexpected = true;
                 } else if (lastBuffer.length) {
                     appendIntoBuffer('-') ;
                 } else {
@@ -408,7 +620,7 @@ GPolySplineBuffer.prototype.fromSVG = function(pathDataArg, options = {}) {
                 }
             } else {
                 if (!command.type || lastBuffer.length > 0) {
-                    isUnexpected = true;
+                    metUnexpected = true;
                 } else {
                     continue;
                 }
@@ -431,17 +643,18 @@ GPolySplineBuffer.prototype.fromSVG = function(pathDataArg, options = {}) {
           ;
         } else if (token === '.') {
             if (!command.type || lastBuffer.indexOf(token) > -1) {
-                isUnexpected = true;
+                metUnexpected = true;
             } else {
                 complaceLastItemOfBuffer(token ) ;
             }
         } else {
-            isUnexpected = true;
+            metUnexpected = true;
         }
 
-        if (isUnexpected) {
+        if (metUnexpected) {
           return athrow(`unexpected character '${token }' (at offset ${i })`) ;
         }
+      }
     }
     applyCommand.apply(this);
 
@@ -720,9 +933,10 @@ GPolySplineBuffer.prototype.draw = function(ctx) {
 /**
  * Convert the GPolySplineBuffer to a string of path data instructions
  * See http://www.w3.org/TR/SVG/paths.html#PathData
- * @type {(...args : [a ?: undefined] | [options: SVGOutputOptions] | [nDecimalPlaces: number] ) => string }
+ * 
+ * @type {(...args : [a ?: never] | [options: SVGOutputOptions] | [nDecimalPlaces: number] ) => string }
  */
-GPolySplineBuffer.prototype.toPathData = function(optionsArg) {
+GPolySplineBuffer.prototype.toPathData = function(optionsArg = {} ) {
     // set/merge default options
     const options = (
         // @ts-ignore
@@ -777,7 +991,7 @@ GPolySplineBuffer.prototype.toPathData = function(optionsArg) {
         flipYBase = boundingBox.y1 + boundingBox.y2;
     } else {
         // @ts-expect-error
-        flipYBase = Number.NaN
+        flipYBase = Number.NaN ;
     }
     let d = '';
     for (let i = 0; i < commandsCopy.length; i += 1) {

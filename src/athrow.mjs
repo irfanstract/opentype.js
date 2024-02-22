@@ -20,7 +20,7 @@ export const athrow = /** @satisfies {<V>(...args: Parameters<typeof TypeError> 
 
 
 /** @type {<T>(a: T) => asserts a is (T & {}) } */
-export function anonnull(value ) {
+export function asNonNull(value ) {
   value ?? athrow(`is ${value }`) ;
 }
 
