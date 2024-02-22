@@ -5,15 +5,17 @@ import check from './check.js';
 import Layout from './layout.js';
 import { arraysEqual } from './util.js';
 
+/** @typedef {import("./font.js").default } Font */
+
 /**
+ * 
  * @exports opentype.Substitution
- * @class
- * @extends opentype.Layout
- * @param {opentype.Font}
- * @constructor
+ * @extends Layout
  */
-function Substitution(font) {
-    Layout.call(this, font, 'gsub');
+class Substitution extends Layout
+{
+    /** @param {Font} font */
+    constructor(font) { super(font, 'gsub') ; }
 }
 
 // Find the first subtable of a lookup table in a particular format.
@@ -31,8 +33,6 @@ function getSubstFormat(lookupTable, format, defaultSubtable) {
     }
     return undefined;
 }
-
-Substitution.prototype = Layout.prototype;
 
 /**
  * Create a default GSUB table.

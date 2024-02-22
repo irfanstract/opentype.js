@@ -1,6 +1,6 @@
 
 
-import { athrow, anonnull } from "./athrow.mjs";
+import { athrow, asNonNull } from "./athrow.mjs";
 
 
 

@@ -70,7 +70,7 @@ function createDefaultNamesInfo(options) {
  * @property {string=} fsSelection
  * 
  * @property {any=} panose
- * @property {any[]=} tables
+ * @property {{ os2?: import("./tables/os2.js").OS2Dict } } [tables]
  * @property {any} glyphs
  * @property {SupportedGlyphOutlineDataFmat } [outlinesFormat]
  */
@@ -200,25 +200,31 @@ function Font(options = {}) {
     
     /** @type {SupportedGlyphOutlineDataFmat= } */
     this.outlinesFormat ;
+
+    /** @type {{}= } */
+    this.hinting ;
+
 }
 
 /**
  * Check if the font has a glyph for the given character.
+ * 
  * @param  {string} c
  * @return {Boolean}
  */
 Font.prototype.hasChar = function(c) {
-    return (this.encoding.charToGlyphIndex(c) ?? athrow(`char not found (${c})`) ) > 0;
+    return (this.encoding.charToGlyphIndex(c) ?? Number.NaN ) > 0;
 };
 
 /**
- * Convert the given character to a single glyph index.
+ * Convert the given character to, a single glyph index if found, or `NaN` if none.
  * Note that this function assumes that there is a one-to-one mapping between
  * the given character and a glyph; for complex scripts this might not be the case.
+ * 
  * @type {(a: string) => number}
  */
 Font.prototype.charToGlyphIndex = function(s) {
-    return this.encoding.charToGlyphIndex(s) ?? athrow(`char not found (${s})`) ;
+    return this.encoding.charToGlyphIndex(s) ?? Number.NaN ;
 };
 
 /**
@@ -270,7 +276,7 @@ Font.prototype.stringToGlyphIndexes = function(s, options) {
     const bidi = new Bidi();
 
     // Create and register 'glyphIndex' state modifier
-    const charToGlyphIndexMod = token => this.charToGlyphIndex(token.char);
+    const charToGlyphIndexMod = /** @param {string} token */ (token) => this.charToGlyphIndex(token.char);
     bidi.registerModifier('glyphIndex', null, charToGlyphIndexMod);
 
     // roll-back to default features
@@ -363,7 +369,12 @@ Font.prototype.getKerningValue = function(leftGlyph, rightGlyph) {
 };
 
 /**
- * @typedef {Object} GlyphRenderOptions
+ * @typedef {GlyphRenderHintingOptions & GlyphRenderOptionsMore } GlyphRenderOptions
+ * 
+ */
+
+/**
+ * @typedef {Object } GlyphRenderOptionsMore
  * 
  * @property {string} [script] - script used to determine which features to apply. By default, 'DFLT' or 'latn' is used.
  *                               See https://www.microsoft.com/typography/otspec/scripttags.htm
@@ -402,7 +413,7 @@ Font.prototype.defaultRenderOptions = {
  * @param  {number} [y=0] - Vertical position of the *baseline* of the text.
  * @param  {number} [fontSize=72] - Font size in pixels. We scale the glyph units by `1 / unitsPerEm * fontSize`.
  * @param  {GlyphRenderOptions=} options
- * @param  {Function} [callback]
+ * @param  {(glyph: Glyph, x: number, y: number, fontSize: number, options: GlyphRenderOptions) => void } [callback]
  */
 Font.prototype.forEachGlyph = function(text, x, y, fontSize, options, callback = Object) {
     x = x !== undefined ? x : 0;
@@ -443,12 +454,17 @@ Font.prototype.forEachGlyph = function(text, x, y, fontSize, options, callback =
 };
 
 /**
+ * @typedef {Required<Parameters<Glyph["getPath"] > >[3] } GlyphRenderHintingOptions
+ * 
+ */
+
+/**
  * Create a Path object that represents the given text.
  * @param  {string} text - The text to create.
  * @param  {number} [x=0] - Horizontal position of the beginning of the text.
  * @param  {number} [y=0] - Vertical position of the *baseline* of the text.
  * @param  {number} [fontSize=72] - Font size in pixels. We scale the glyph units by `1 / unitsPerEm * fontSize`.
- * @param  {GlyphRenderOptions=} options
+ * @param  {GlyphRenderOptions } [options]
  * @return {Path}
  */
 Font.prototype.getPath = function(text, x, y, fontSize = 72, options) {
@@ -597,7 +613,8 @@ Font.prototype.validate = function() {
     assertNamePresent('version');
 
     // Dimension information
-    assert(this.unitsPerEm > 0, 'No unitsPerEm specified.');
+    assert((this.unitsPerEm ?? Number.NaN) > 0, 'No unitsPerEm specified.');
+    assert(!Number.isFinite(this.unitsPerEm ?? athrow() ) , `non-finite unitsPerEm specified (${this.unitsPerEm }).`);
 };
 
 /**

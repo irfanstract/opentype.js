@@ -3,7 +3,7 @@
 // (c) 2015 Frederik De Bleser
 // opentype.js may be freely distributed under the MIT license.
 
-import { athrow, anonnull } from './athrow.mjs';
+import { athrow, asNonNull } from './athrow.mjs';
 
 import { tinf_uncompress as inflate } from './tiny-inflate@1.0.3.esm.js'; // from code4fukui/tiny-inflate-es
 import { isNode } from './util.js';
