@@ -20,7 +20,7 @@
 
 
 import { athrow, asNonNull } from "./athrow.mjs";
-import check from './check.js';
+import check, { assert } from './check.js';
 import { strConcatOf2, } from "./athrow.mjs";
 
 
@@ -31,13 +31,13 @@ import { encode, sizeOf } from './types.js';
 
 
 
-class Table
+class EcdTable
 {
   
   /**
    * @exports opentype.Table 
    * @param {string} tableName
-   * @param {TableFieldDescriptorByTnV<string, unknown > [] } fields
+   * @param {readonly TableFieldDescriptorByTnV<string, unknown > [] | null } fields
    * @param {{ [key: string]: unknown ; }} [options] 
    */
   constructor (tableName, fields, options)
@@ -57,27 +57,132 @@ class Table
       Object.assign(this, options ) ;
     }
 
-    // TODO
-    /** @type {number=} */
-    this.format ;
-    /** @type {number=} */
-    this.coverageFormat ;
   }
 }
 
 /**
- * {@link Table }, refined according to the {@link TableFieldDescriptorByNameField}s passed
+ * create new sub-class of {@link EcdTable} with given title,
+ * to be used in manner how {@link ClassDefEcdTable} subclasses {@link CoverageEcdTableBase} (itself obtained from this method.)
  * 
- * @type {new <T extends string>(tableName: string, f: TableFieldDescriptorByNameField<T>[] ) => Table & { [k in T]: {}, } }
+ */
+const otjsPreShapedTableConstructorVersioned = (
+  /**
+   * 
+   * @param vh  the version-to-desc map
+   * @param ivt you should leave this unset ; internally this is auxiliary
+   * @type {<const tableNameT extends string, const definedTableFields extends TableFieldDescriptorByNameField<string>[] >(clsName: tableNameT , ivt ?: { DefinedFields: definedTableFields[] } ) => (new (fields: readonly [...definedTableFields ] ) => EcdTable & OtscByFieldNameArrayAsDict<definedTableFields[number]> ) }
+   */
+  function createTableClass(clsName, ivt = { DefinedFields: [] } ) {
+    // clsName, fields
+    const C = class extends EcdTable {
+      get [Symbol.toStringTag]() { return clsName + "Table" ; }
+      /**
+       * @param {(typeof ivt)["DefinedFields"][number]} fields 
+       */
+      constructor(fields) {
+        super(clsName, fields) ;
+      }
+    } ;
+    return C ;
+  }
+) ;
+
+/**
+ * from field-desc-list `definedTableFields`, describe the regular, conforming record-type.
+ * 
+ * TODO when finally ES Records And Tuples comes out, try use those instead of plain object literal types
+ * 
+ * `<const tableNameT extends string, const definedTableFields extends TableFieldDescriptorByNameField<string>[] >`
+ * 
+ * @typedef { definedTableFields[number] extends infer D ? IThisParameterType<(D extends infer fieldDesc ? (this: FromEcdFieldDesc<TableFieldDescriptorByNameField<string> & fieldDesc> ) => void : never )> : never } FromEcdFieldList
+ * 
+ * @template {TableFieldDescriptorByNameField<string>[]} definedTableFields
+ * 
+ * @template {string} [tableNameT=string]
+ * 
+ */
+const FromEcdFieldList = {} ;
+
+(
+  /**
+   * @template {FromEcdFieldList<[{name: `${string}Count`, type: 'USHORT', value: number, }, {name: `${string}Tag`, type: 'TAG', value: string, }]> } FromEcdFieldListTest1
+   * @param {FromEcdFieldList<[{name: `${string}Count`, type: 'USHORT', value: number, }, {name: `${string}Tag`, type: 'TAG', value: string, }, {name: "END", type: 'TAG', value: string, }]> } arg
+   * 
+   */
+  (arg ) => {
+    return /** @type {((typeof arg)[`${"string"}Count` ] )[] } */ ([]) ;
+  }
+) ;
+
+/**
+ * from field-desc `D`, describe the regular, conforming record-type.
+ * 
+ * in general
+ * the resulting dict cannot be guaranteed to be single-field
+ * unless `(any D).name` is monomorphic string literal type
+ * (eg `"name"`, rather than `interpolateStringTemplate"glyph${i}Name"` )
+ * 
+ * `<const tableNameT extends string, const definedTableFields extends TableFieldDescriptorByNameField<string>[] >`
+ * 
+ * @typedef { { [key in D["name"] ]: D["value"] } } FromEcdFieldDesc
+ * 
+ * @template {TableFieldDescriptorByNameField<string> } D
+ * 
+ * @template {string} [tableNameT=string]
+ * 
+ */
+const FromEcdFieldDesc = {} ;
+
+/**
+ * 
+ * `<const tableNameT extends string, const definedTableFields extends TableFieldDescriptorByNameField<string>[] >`
+ * 
+ * @typedef { definedTableFields[number] } EcdFieldT
+ * 
+ * @template {TableFieldDescriptorByNameField<string>[]} definedTableFields
+ * 
+ * @template {string} [tableNameT=string]
+ * 
+ */
+
+/**
+ * @typedef {{ fieldDescs: TableFieldDescriptorByNameField<DefinedFieldName>[] } } OtscTbdsc
+ * 
+ * @property fieldDescs
+ * 
+ * @template {string } [DefinedFieldName=string]
+ * 
+ */
+
+/**
+ * @typedef {{ readonly [v in SupportedVersionNumber]: OtscTbdsc<DefinedFieldName> ; } } OtscVersionalTbdsc
+ * 
+ * @template {string | number | symbol } SupportedVersionNumber
+ * 
+ * @template {string } [DefinedFieldName=string]
+ * 
+ */
+
+/**
+ * @typedef {{ readonly [v in fieldDescs[number]["name"] ]: fieldDescs[number]["value"] ; } } OtscByFieldNameArrayAsDict
+ * 
+ * @template { TableFieldDescriptorByNameField<string>[] } fieldDescs
+ * 
+ */
+
+/**
+ * {@link EcdTable }, refined according to the {@link TableFieldDescriptorByNameField}s passed
+ * 
+ * @type {new <T extends string>(tableName: string, f: TableFieldDescriptorByNameField<T>[] ) => EcdTable & { [k in T]: {}, } }
  */
 // @ts-ignore
-const TableKky = Table ;
+const TableKky = EcdTable ;
 
 /**
  * Encodes the table and returns an array of bytes
  * @return {any[] }
  */
-Table.prototype.encode = function() {
+EcdTable.prototype.encode = function() {
   return encode.TABLE(this);
 };
 
@@ -85,7 +190,7 @@ Table.prototype.encode = function() {
  * Get the size of the table.
  * @return {number}
  */
-Table.prototype.sizeOf = function() {
+EcdTable.prototype.sizeOf = function() {
   return sizeOf.TABLE(this);
 };
 
@@ -96,48 +201,74 @@ Table.prototype.sizeOf = function() {
 const ushortList = (
   /**
    * 
-   * @satisfies {<T extends {}, const nm extends string>(...args: [...[expectedTbName: nm, srcAsArray: readonly T[], count ?: number] ] ) => ({} )[] }
+   * @template {string } nm
+   * @template T
+   * 
+   * @param {[...[expectedTbName: nm, srcAsArray: readonly T[], count ?: number] ] } args
    * 
    */
-  (function ushortListImpl(itemName, list, count) {
+  function ushortListImpl(...[itemName, list, count]) {
     if (count === undefined) {
         count = list.length;
     }
     
-    /** @typedef {(typeof list )[number] } T */
+    // /** @typedef {(typeof list )[number] } T */
     
-    // /** @type {ReturnType<typeof ushortListImpl<T> >[number] [] } */
-    /** @type {(TableFieldDescriptorByNmAndTypeAndValue<`${typeof itemName }${"Count" | number }` , "USHORT" , T | (typeof count) > ) [] } */
-    const fields = new Array(list.length + 1);
-    fields[0] = {name: strConcatOf2(itemName, count), type: 'USHORT', value: count};
-    for (let i = 0; i < list.length; i++) {
-      fields[i + 1] = {name: strConcatOf2(itemName, i), type: 'USHORT', value: list[i] ?? athrow() };
-    }
-    return fields;
-  })
+    return /** @type {const} */ ([
+      /** @satisfies {(TableFieldDescriptorByNmAndTypeAndValue<`${typeof itemName }${"Count" | number }` , "USHORT" , T | (typeof count) > ) } */ (
+        {name: strConcatOf2(itemName, count), type: 'USHORT', value: count}
+      ) ,
+      ...(
+        list
+        .map((listItem, i) => /** @satisfies {(TableFieldDescriptorByNmAndTypeAndValue<`${typeof itemName }${"Count" | number }` , "USHORT" , T | (typeof count) > ) } */ (
+          {name: strConcatOf2(itemName, i), type: 'USHORT', value: list[i] ?? athrow() }
+        ) )
+      ) ,
+    ]) ;
+  }
 ) ;
 
 /**
  * @private
- * @type {(
- * <T>(...args: [...[expectedTbName: string, srcAsArray: readonly T[]] , (item: T, i: number) => any ] )
- * => (TableFieldDescriptorByTnV<'USHORT' | 'TABLE' | 'TAG', any > )[]
- * )}
+ * 
  */
-function tableList(itemName, records, itemCallback) {
+const tableList = (
+  /**
+   * 
+   * @template {string } tableTitleT
+   * @template T
+   * @template FnRT
+   * @param {[...[expectedTbName: tableTitleT, srcAsArray: readonly T[]] , (item: T, i: number) => FnRT ] } args
+   */
+  function (...[itemName, records, itemCallback]) {
     const count = records.length;
 
-    const fields = /** @satisfies {(TableFieldDescriptorByTnV<'USHORT' | 'TABLE' | 'TAG', any > ) [] } */ ([
-      {name: itemName + 'Count', type: 'USHORT', value: count} ,
-      .../** @satisfies {(TableFieldDescriptorByTnV<'USHORT' | 'TABLE' | 'TAG', any > ) [] } */ (
-        records
-        .map((rec, i) => (
-          {name: itemName + i, type: 'TABLE', value: itemCallback(rec, i)}
-        ))
+    // /** @typedef {(typeof records )[keyof typeof records] } T */
+    // /** @typedef {ReturnType<typeof itemCallback> } FnRT */
+    
+    // const fields = /** @satisfies {(TableFieldDescriptorByTnV<'USHORT' | 'TABLE' | 'TAG', any > ) [] } */ ([
+    //   {name: `${itemName}Count`, type: 'USHORT', value: count} ,
+    //   .../** @satisfies {(TableFieldDescriptorByTnV<'USHORT' | 'TABLE' | 'TAG', any > ) [] } */ (
+    //     records
+    //     .map((rec, i) => (
+    //       {name: `${itemName}${i}`, type: 'TABLE', value: itemCallback(rec, i)}
+    //     ))
+    //   ) ,
+    // ]);
+    // return fields;
+    return /** @type {const} */ ([
+      /** @satisfies {(TableFieldDescriptorByNmAndTypeAndValue<`${typeof itemName }${"Count" | number }` , "USHORT" , T | (typeof count) > ) } */ (
+        {name: `${itemName}Count`, type: 'USHORT', value: count}
       ) ,
-    ]);
-    return fields;
-}
+      ...(
+        records
+        .map((rec, i) => /** @satisfies {(TableFieldDescriptorByNmAndTypeAndValue<string , string , FnRT > ) } */ (
+          {name: `${itemName}${i}`, type: 'TABLE', value: itemCallback(rec, i)}
+        ) )
+      ) ,
+    ]) ;
+  }
+) ;
 
 /**
  * @private
@@ -145,33 +276,56 @@ function tableList(itemName, records, itemCallback) {
 const recordList = (
   /**
    * 
-   * @satisfies {(
-   * <T, const tbName extends string>(...args: [...[expectedTbName: tbName, srcAsArray: readonly T[]] , (item: T, i: number) => TableFieldDescriptorByNmAndTypeAndValue<string, 'TAG' | 'TABLE' | 'USHORT', any >[] ] )
-   * => ({} )[] 
-   * )}
+   * @template T
+   * @template {string } tbName
+   * 
+   * @param {[...[expectedTbName: tbName, srcAsArray: readonly T[]] , (item: T, i: number) => readonly TableFieldDescriptorByNmAndTypeAndValue<string, 'TAG' | 'TABLE' | 'USHORT', any >[] ] } args
+   * 
    */
-  (function (itemName, records, itemCallback) {
+  function (...[itemName, records, itemCallback]) {
     const count = records.length;
 
+    // /** @typedef {(typeof records )[keyof typeof records] } T */
+    
     /** @typedef {ReturnType<typeof itemCallback>[number] } ReturnedEachRec */
 
-    /** @type {(TableFieldDescriptorByNmAndTypeAndValue<`${typeof itemName}Count` | ReturnedEachRec["name"] , ReturnedEachRec["type"] , ReturnedEachRec["value"] > ) [] } */
-    let fields = [];
-    fields[0] = {name: strConcatOf2(itemName, count), type: 'USHORT', value: count};
-    for (let i = 0; i < count; i++) {
-        fields = [...fields, ...itemCallback(records[i] ?? athrow(), i) ] ;
-    }
-    return fields;
-  } )
+    // /** @type {(TableFieldDescriptorByNmAndTypeAndValue<`${typeof itemName}Count` | ReturnedEachRec["name"] , ReturnedEachRec["type"] , ReturnedEachRec["value"] > ) [] } */
+    // let fields = [];
+    // fields[0] = {name: strConcatOf2(itemName, count), type: 'USHORT', value: count};
+    // for (let i = 0; i < count; i++) {
+    //     fields = [...fields, ...itemCallback(records[i] ?? athrow(), i) ] ;
+    // }
+    // return fields;
+    return /** @type {const} */ ([
+      /** @satisfies {(TableFieldDescriptorByNmAndTypeAndValue<`${typeof itemName }${"Count" | number }` , "USHORT" , T | (typeof count) > ) } */ (
+        {name: strConcatOf2(itemName, count), type: 'USHORT', value: count}
+      ) ,
+      ...(
+        records.slice(0, count)
+        .flatMap((listItem, i) => /** @satisfies {(TableFieldDescriptorByNmAndTypeAndValue<string , string , T | (typeof count) > )[] } */ (
+          [...itemCallback(listItem ?? athrow(), i) ]
+        ) )
+      ) ,
+    ]) ;
+  } 
 ) ;
 
 /**
- * @typedef {{name: Name, type: Type, value: Value } } TableFieldDescriptorByNmAndTypeAndValue
+ * @typedef {{name: Name, } & TableFieldDescriptorSubpartTypeAndValue<Type, Value> } TableFieldDescriptorByNmAndTypeAndValue
  * @template {string} Name
  * @template {string} Type
  * @template Value
  * 
  */
+const TableFieldDescriptorByNmAndTypeAndValue = {} ;
+
+/**
+ * @typedef {{ type: Type, value: Value, } } TableFieldDescriptorSubpartTypeAndValue
+ * @template {string} Type
+ * @template Value
+ * 
+ */
+const TableFieldDescriptorSubpartTypeAndValue = {} ;
 
 /**
  * @typedef {TableFieldDescriptorByNmAndTypeAndValue<string, Type, Value> } TableFieldDescriptorByTnV
@@ -203,28 +357,32 @@ export {
 
 // Common Layout Tables
 
-/* a template for declaring these `YyyTable`s */
-// /** @type {new (...args: ConstructorParameters<typeof Table>) => (Table) } */
-// const SbTable = Table ;
-
-/** @type {new (...args: ConstructorParameters<typeof Table>) => (Table & KTCoverageTableFmts1[1 | 2] ) } */
-const CTableBase = Table ;
-// /** @type {new (...args: ConstructorParameters<typeof Table>) => (Table & KTCoverageTableFmts1[1 | 2] ) } CTable */
+const CoverageEcdTableBase = (
+  otjsPreShapedTableConstructorVersioned('coverageTable' , {
+    DefinedFields: 
+    /**
+     * @type {(
+     *   | [(TableFieldDescriptorByNmAndTypeAndValue<'coverageFormat', 'USHORT', 1> ) , ...(TableFieldDescriptorByNmAndTypeAndValue<`glyph${number}` | "glyphCount", "USHORT", {}> )[] ]
+     *   | [(TableFieldDescriptorByNmAndTypeAndValue<'coverageFormat', 'USHORT', 2> ) , ...(TableFieldDescriptorByNmAndTypeAndValue<string, "TAG" | "TABLE" | "USHORT", {}>        )[] ]
+     * )[] }
+     *  */ ([]) ,
+  } )
+) ;
 
 /**
  * 
  */
-class Coverage extends CTableBase
+class CoverageEcdTable extends CoverageEcdTableBase
 {
   /**
    * 
    * @class
-   * @param {Table & ( { format: 1 ; glyphs: any[] } | { format: 2 ; ranges: any[] } )} coverageTable
+   * @param {KtOtjsSupportedOtfCoverageTableImpl } coverageTable
    * 
    */
   constructor(coverageTable)
   {
-    super('coverageTable', (
+    super((
       coverageTable.format === 1 ?
       [{name: 'coverageFormat', type: 'USHORT', value: 1} , ... ushortList('glyph', coverageTable.glyphs) ]
       :
@@ -239,24 +397,25 @@ class Coverage extends CTableBase
       }) ]
       :
 
-      athrow(`[Coverage.new] only supporting format 1 or 2 - instead got ${coverageTable} .`)
+      athrow(`[CoverageEcdTable.new] only supporting format 1 or 2 - instead got ${coverageTable} .`)
     ) ) ;
+
   }
 }
 
-/** @type {new (...args: ConstructorParameters<typeof Table>) => (Table) } */
-const SlTableBase = Table ;
+/** @type {new (...args: ConstructorParameters<typeof EcdTable>) => (EcdTable) } */
+const SlTableBase = EcdTable ;
 
 /**
  * 
  * @class
  */
-class ScriptList extends SlTableBase
+class ScriptListEcdTable extends SlTableBase
 {
   /**
    * 
    * @class
-   * @param {Table} scriptListTable
+   * @param {EcdTable} scriptListTable
    */  
   constructor(scriptListTable)
   {
@@ -264,11 +423,11 @@ class ScriptList extends SlTableBase
         recordList('scriptRecord', scriptListTable, function(scriptRecord, i) {
             const script = scriptRecord.script;
             let defaultLangSys = script.defaultLangSys;
-            check.assert(!!defaultLangSys, 'Unable to write GSUB: script ' + scriptRecord.tag + ' has no default language system.');
+            assert(!!defaultLangSys, 'Unable to write GSUB: script ' + scriptRecord.tag + ' has no default language system.');
             return [
                 {name: 'scriptTag' + i, type: 'TAG', value: scriptRecord.tag},
-                {name: 'script' + i, type: 'TABLE', value: new Table('scriptTable', [
-                    {name: 'defaultLangSys', type: 'TABLE', value: new Table('defaultLangSys', [
+                {name: 'script' + i, type: 'TABLE', value: new EcdTable('scriptTable', [
+                    {name: 'defaultLangSys', type: 'TABLE', value: new EcdTable('defaultLangSys', [
                         {name: 'lookupOrder', type: 'USHORT', value: 0},
                         {name: 'reqFeatureIndex', type: 'USHORT', value: defaultLangSys.reqFeatureIndex},
                         ... ushortList('featureIndex', defaultLangSys.featureIndexes)]
@@ -276,7 +435,7 @@ class ScriptList extends SlTableBase
                     const langSys = langSysRecord.langSys;
                     return [
                         {name: 'langSysTag' + i, type: 'TAG', value: langSysRecord.tag},
-                        {name: 'langSys' + i, type: 'TABLE', value: new Table('langSys', [
+                        {name: 'langSys' + i, type: 'TABLE', value: new EcdTable('langSys', [
                             {name: 'lookupOrder', type: 'USHORT', value: 0},
                             {name: 'reqFeatureIndex', type: 'USHORT', value: langSys.reqFeatureIndex}
                             ,
@@ -291,12 +450,12 @@ class ScriptList extends SlTableBase
   }
 }
 
-class FeatureList extends Table
+class FeatureListEcdTable extends EcdTable
 {
   /**
    * 
    * @class
-   * @param {Table} featureListTable
+   * @param {{}[]} featureListTable
    * @constructor
    */
   constructor(featureListTable)
@@ -306,7 +465,7 @@ class FeatureList extends Table
             const feature = featureRecord.feature;
             return [
                 {name: 'featureTag' + i, type: 'TAG', value: featureRecord.tag},
-                {name: 'feature' + i, type: 'TABLE', value: new Table('featureTable', [
+                {name: 'feature' + i, type: 'TABLE', value: new EcdTable('featureTable', [
                   {name: 'featureParams', type: 'USHORT', value: feature.featureParams},
                   ...ushortList('lookupListIndex', feature.lookupListIndexes)
                   ,
@@ -319,32 +478,47 @@ class FeatureList extends Table
 
 // TODO
 /**
- * @typedef {{ [key: string]: (item: any, i: number) => any ; } } LookupListIngrSubtableMakers
+ * @typedef {((item: any, i: number) => any )[] } LookupListIngrSubtableMakers
  * 
  */
 
-/** @type {new (...args: ConstructorParameters<typeof Table>) => (Table) } */
-const LlTableBase = Table ;
+const LookupListEcdTableBase = (
+  otjsPreShapedTableConstructorVersioned('lookupListTable' , {
+    DefinedFields: 
+    // /**
+    //  * @type {(
+    //  *   | [(TableFieldDescriptorByNmAndTypeAndValue<'coverageFormat', 'USHORT', 1> ) , ...(TableFieldDescriptorByNmAndTypeAndValue<`glyph${number}` | "glyphCount", "USHORT", {}> )[] ]
+    //  *   | [(TableFieldDescriptorByNmAndTypeAndValue<'coverageFormat', 'USHORT', 2> ) , ...(TableFieldDescriptorByNmAndTypeAndValue<string, "TAG" | "TABLE" | "USHORT", {}>        )[] ]
+    //  * )[] }
+    //  *  */ ([])
+    /**
+     * @type {(
+     *   | TableFieldDescriptorByNameField<string>[]
+     * )[] }
+     *  */ ([])
+     ,
+  } )
+) ;
 
 /**
  * 
  * @class
  */
-class LookupList extends LlTableBase
+class LookupListEcdTable extends LookupListEcdTableBase
 {
   /**
    * 
    * @class
-   * @param {Table} lookupListTable
+   * @param {{}[]} lookupListTable
    * @param {LookupListIngrSubtableMakers} subtableMakers
    */
   constructor(lookupListTable, subtableMakers)
   {
-    super('lookupListTable', tableList('lookup', lookupListTable, function(lookupTable) {
-        let subtableCallback = subtableMakers[lookupTable.lookupType] ?? athrow(`[LookupList.new] [subtableCallback] nf`) ;
+    super(tableList('lookup', lookupListTable, function(lookupTable) {
+        let subtableCallback = subtableMakers[lookupTable.lookupType] ?? athrow(`[LookupListEcdTable.new] [subtableCallback] nf`) ;
 
-        check.assert(!!subtableCallback, 'Unable to write GSUB lookup type ' + lookupTable.lookupType + ' tables.');
-        return new Table('lookupTable', [
+        assert(!!subtableCallback, 'Unable to write GSUB lookup type ' + lookupTable.lookupType + ' tables.');
+        return new EcdTable('lookupTable', [
             {name: 'lookupType', type: 'USHORT', value: lookupTable.lookupType},
             {name: 'lookupFlag', type: 'USHORT', value: lookupTable.lookupFlag}
             ,
@@ -355,7 +529,7 @@ class LookupList extends LlTableBase
   }
 }
 
-/** @typedef {{ format: 1 ; classes: number[] ; startGlyph: number ; } | { format: 2 ; ranges: { start: number, end: number ; }[] } } CdeTableD */
+/** @typedef {KtOtjsSupportedOtfClassDefTableImpl } CdeTableD */
 
 /**
  * @class
@@ -363,10 +537,10 @@ class LookupList extends LlTableBase
  *
  * @see https://learn.microsoft.com/en-us/typography/opentype/spec/chapter2#class-definition-table
  */
-class ClassDefImpl extends Table
+class ClassDefImpl extends EcdTable
 {
   /**
-   * @exports opentype.ClassDef
+   * @exports opentype.ClassDefEcdTable
    * @class
    * @param {( CdeTableD )} classDefTable
    * @constructor
@@ -378,7 +552,7 @@ class ClassDefImpl extends Table
     ;
     super(
     ...(() =>
-    { const args = /** @satisfies {ConstructorParameters<typeof Table> & { 0: 'classDefTable' } } */ (
+    { const args = /** @satisfies {ConstructorParameters<typeof EcdTable> & { 0: 'classDefTable' } } */ (
       classDefTable.format === 1 ? [
           'classDefTable' ,
           [
@@ -404,34 +578,31 @@ class ClassDefImpl extends Table
           ] ,
       ] :
       
-      athrow(`[ClassDef.new] only supporting format 1 or 2 - instead got ${classDefTable} .`)
+      athrow(`[ClassDefEcdTable.new] only supporting format 1 or 2 - instead got ${classDefTable} .`)
     ) ; return args ; } )() ) ;
 
     /* (re)declaring here as work-around until this thing start working */
 
-    /** @type {CdeTableD["format"]} */
-    this.format ;
-    /** @type {(CdeTableD & { format: 1 } )["startGlyph"] =} */
-    this.startGlyph ;
-    /** @type {(CdeTableD & { format: 2 } )["ranges"] =} */
-    this.ranges ;
   }
 }
 
-/** @typedef {ClassDefImpl & CdeTableD } ClassDef */
-/** @type {new (...args: ConstructorParameters<typeof Table>) => ClassDef } */
-const ClassDef = ClassDefImpl ;
+/** @typedef {ClassDefImpl & CdeTableD } ClassDefEcdTable */
+/** @type {new (...args: ConstructorParameters<typeof EcdTable>) => ClassDefEcdTable } */
+const ClassDefEcdTable = ClassDefImpl ;
 
 // Record = same as Table, but inlined (a Table has an offset and its data is further in the stream)
 // Don't use offsets inside Records (probable bug), only in Tables.
 export default {
-    Table,
-    Record: Table,
-    Coverage,
-    ClassDef,
-    ScriptList,
-    FeatureList,
-    LookupList,
+    EcdTable ,
+    /** @deprecated alias of {@link EcdTable} you should directly refer instead. */
+    Table: EcdTable ,
+    /** @deprecated alias of {@link EcdTable} you should directly refer instead. */
+    Record: EcdTable,
+    CoverageEcdTable,
+    ClassDefEcdTable,
+    ScriptListEcdTable,
+    FeatureListEcdTable,
+    LookupListEcdTable,
     ushortList,
     tableList,
     recordList,
@@ -439,10 +610,20 @@ export default {
 
 export {
   //
-  Table,
-  Coverage,
-  ClassDef,
-  ScriptList,
-  FeatureList,
-  LookupList,
+  EcdTable ,
+  /** @deprecated alias of {@link EcdTable} you should directly refer instead. */
+  EcdTable as Table,
+  FromEcdFieldList ,
+  FromEcdFieldDesc ,
+  otjsPreShapedTableConstructorVersioned ,
+  CoverageEcdTable,
+  ClassDefEcdTable,
+  ScriptListEcdTable,
+  FeatureListEcdTable,
+  LookupListEcdTable,
+} ;
+export {
+  //
+  TableFieldDescriptorByNmAndTypeAndValue ,
+  TableFieldDescriptorSubpartTypeAndValue
 } ;

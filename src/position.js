@@ -28,7 +28,7 @@ Position.prototype.init = function() {
 };
 
 /**
- * @typedef {KTKerningLookupTable} XKerningLookupTable
+ * @typedef {KtOtjsSupportedOtfKerningLookupTable} XKerningLookupTable
  * 
  */
 

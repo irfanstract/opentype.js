@@ -381,7 +381,7 @@ Font.prototype.getKerningValue = function(leftGlyph, rightGlyph) {
  * @property {string} [language='dflt'] - language system used to determine which features to apply.
  *                                        See https://www.microsoft.com/typography/developers/opentype/languagetags.aspx
  * @property {boolean} [kerning=true] - whether to include kerning values
- * @property {KTFeature[] } [features] - OpenType Layout feature tags. Used to enable or disable the features of the given script/language system.
+ * @property {KtOtfFeature[] } [features] - OpenType Layout feature tags. Used to enable or disable the features of the given script/language system.
  *                                 See https://www.microsoft.com/typography/otspec/featuretags.htm
  * 
  * @property {number} [letterSpacing]
@@ -747,5 +747,7 @@ Font.prototype.usWeightClasses = {
     EXTRA_BOLD: 800,
     BLACK:    900
 };
+
+export { Font, } ;
 
 export default Font;

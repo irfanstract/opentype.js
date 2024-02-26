@@ -603,21 +603,21 @@ opentype.Table.prototype.fields;
  * @param {opentype.Table} coverageTable
  * @constructor
  */
-opentype.Coverage = function(coverageTable) {};
+opentype.CoverageEcdTable = function(coverageTable) {};
 
 /**
  * @extends {opentype.Table}
  * @param {opentype.Table} scriptListTable
  * @constructor
  */
-opentype.ScriptList = function(scriptListTable) {};
+opentype.ScriptListEcdTable = function(scriptListTable) {};
 
 /**
  * @extends {opentype.Table}
  * @param {opentype.Table} featureListTable
  * @constructor
  */
-opentype.FeatureList = function(featureListTable) {};
+opentype.FeatureListEcdTable = function(featureListTable) {};
 
 /**
  * @extends {opentype.Table}
@@ -625,7 +625,7 @@ opentype.FeatureList = function(featureListTable) {};
  * @param {Object} subtableMakers
  * @constructor
  */
-opentype.LookupList = function(lookupListTable, subtableMakers) {};
+opentype.LookupListEcdTable = function(lookupListTable, subtableMakers) {};
 
 /**
  * @constructor

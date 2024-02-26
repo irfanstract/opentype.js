@@ -66,9 +66,16 @@ declare type RecordValueTypeAlternation<out SrcDict extends Record<unknown, unkn
  * ```
  * 
  */
-declare type ArrayItemTypeAlternation<out SrcDict extends Record<unknown, unknown> > = (
+declare type ArrayItemTypeAlternation<out SrcDict extends readonly any[] > = (
   RecordValueTypeAlternation<{ [i in Pick<keyof A, `${number}` >]: A[i] }>
 ) ;
+
+/**
+ * sound version of {@link ThisParameterType} -
+ * Extracts the type of the 'this' parameter of a function type, or 'unknown' if the function type has no 'this' parameter.
+ * 
+ */
+type IThisParameterType<T> = [T] extends [(this: infer U, ...args: never) => any] ? U : unknown ;
 
 
 

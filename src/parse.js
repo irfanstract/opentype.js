@@ -312,6 +312,10 @@ Parser.prototype.skip = function(type, amount) {
  * 
  */
 
+const throwErrorCountNotSpecifiedException = () => (
+  athrow(`error, 'count' not specified.`)
+) ;
+
 // Parse a list of 32 bit unsigned integers.
 /** @type {IParseListByCount } */
 Parser.prototype.parseULongList = function(count) {
@@ -328,23 +332,32 @@ Parser.prototype.parseULongList = function(count) {
     return offsets;
 };
 
-// Parse a list of 16 bit unsigned integers. The length of the list can be read on the stream
-// or provided as an argument.
-/** @type {IParseListByCount } */
+/**
+ * Parse a list of 16 bit unsigned integers. The length of the list can be read on the stream
+ * or provided as an argument.
+ * 
+ */
 Parser.prototype.parseOffset16List =
-Parser.prototype.parseUShortList = function(count) {
-    if (count === undefined) { count = this.parseUShort(); }
-    const offsets = new Array(count);
-    const dataView = this.data;
-    let offset = this.offset + this.relativeOffset;
-    for (let i = 0; i < count; i++) {
-        offsets[i] = dataView.getUint16(offset);
-        offset += 2;
-    }
+Parser.prototype.parseUShortList = /** @satisfies {Function } */ (
+    /**
+     * @param {number } [countArg]
+     * @this {Parser }
+     */
+    function(countArg)
+    {
+        const count = countArg ?? this.parseUShort() ;
+        const offsets = /** @type {Array<number> } */ (new Array(count) ) ;
+        const dataView = this.data;
+        let offset = this.offset + this.relativeOffset;
+        for (let i = 0; i < count; i++) {
+            offsets[i] = dataView.getUint16(offset);
+            offset += 2;
+        }
 
-    this.relativeOffset += count * 2;
-    return offsets;
-};
+        this.relativeOffset += count * 2;
+        return offsets;
+}
+);
 
 // Parses a list of 16 bit signed integers.
 /** @type {IParseListByCount } */
@@ -381,16 +394,15 @@ Parser.prototype.parseByteList = function(count) {
  * itemCallback is one of the Parser methods.
  * 
  * @template Item
- * @param {(this: this) => Item } itemCallback
- * @param {number} count
+ * @param {Parameters<typeof parseFitcArgs<Parser, Item> > } args
  * 
  */
-Parser.prototype.parseList = function(count, itemCallback) {
-    if (!itemCallback) {
-        // TODO - why this assignment ???
-        itemCallback = count;
-        count = this.parseUShort();
-    }
+Parser.prototype.parseList = function(...args )
+{
+    const {
+        count = this.parseUShort(),
+        itemCallback,
+    } = parseFitcArgs(...args) ;
     const this1 = this ;
 
     return [...reiterableBy((function* () {
@@ -406,16 +418,15 @@ Parser.prototype.parseList = function(count, itemCallback) {
  * itemCallback is one of the Parser methods.
  * 
  * @template Item
- * @param {(this: this) => Item } itemCallback
- * @param {number} count
+ * @param {Parameters<typeof parseFitcArgs<Parser, Item> > } args
  * 
  */
-Parser.prototype.parseList32 = function(count, itemCallback) {
-    if (!itemCallback) {
-        // TODO - why this assignment ???
-        itemCallback = count;
-        count = this.parseULong();
-    }
+Parser.prototype.parseList32 = function(...args )
+{
+    const {
+        count = this.parseULong(),
+        itemCallback,
+    } = parseFitcArgs(...args) ;
     const this1 = this ;
 
     return [...reiterableBy((function* () {
@@ -425,85 +436,179 @@ Parser.prototype.parseList32 = function(count, itemCallback) {
     }) )] ;
 };
 
+const parseFitcArgs = /** @satisfies {<This, Item>(...args: [...c: ([count: number] | []) , itemCallback: (this: This) => Item] ) => {} } */ ((...args) => {
+  const { count, itemCallback, } = (parseFitcGArgs(...args) ) ;
+  return { count, itemCallback, } ;
+}) ;
+// TODO - merge these 2 defs - can't do this now due to issues with type-param bindings and inference
+const parseFitcGArgs = /** @satisfies {<This, F>(...args: [...c: ([count: number] | []) , itemCallback: F ] ) => { itemCallback: F, } } */ ((...args) => {
+    if (2 === args.length) {
+      const [count, itemCallback] = args ;
+      return { count, itemCallback } ;
+    }
+    if (1 === args.length) {
+      const [itemCallback] = args ;
+      return { itemCallback } ;
+    }
+    return athrow(JSON.stringify(args) ) ;
+  }) ;
+
 /** @typedef {(([typeof Parser] extends [infer CS] ? CS : never ) extends infer CS10 ? ({ [k in keyof CS10]: [k, CS10[k]] ; }[keyof CS10] extends infer CS1 ? CS1 : never) : never) } URTPairPlus */
 /** @typedef {(URTPairPlus extends infer T ? (T extends Readonly<[{}, Function] & [{}, string]> ? never : T ) : never )[1] } URT */
 
 /**
  * Parse a list of records.
  * Record count is optional, if omitted it is read from the stream.
- * Example of recordDescription: { sequenceIndex: Parser.uShort, lookupListIndex: Parser.uShort }
+ * Example of recordDescription: `{ sequenceIndex: Parser.uShort, lookupListIndex: Parser.uShort }`.
  * 
- * @param {{ [key: string]: URT ; }} recordDescription
- * @param {Array<{}>["length"] } count
+ * @param {{ count: number ; }} options
+ * 
+ * @param {ActualSrcDict} recordDescription
+ * 
+ * @template {{ [key : (string | number)]: URT ; } } ActualSrcDict
+ * 
+ * @returns {{ [k in keyof ActualSrcDict ]: ReturnType<ActualSrcDict[k]> }[] }
  * 
  */
-Parser.prototype.parseRecordList = function(count, recordDescription) {
-    // If the count argument is absent, read it in the stream.
-    if (!recordDescription) {
-        // TODO
-        recordDescription = count;
-        count = this.parseUShort();
+Parser.prototype.parseRecordListImpl = function({ count = throwErrorCountNotSpecifiedException() , }, recordDescription)
+{
+  const this1 = this ;
+
+  // /** @typedef {typeof recordDescription } ActualSrcDict */
+
+  return [...reiterableBy((function* () {
+    for (let i = 0; i < count; i++) {
+      yield (
+        // /** @type {{ [k in keyof ActualSrcDict ]: ReturnType<ActualSrcDict[k]> } } */
+        // (
+        //   Object.fromEntries((
+        //       //
+        //       reiterableBy(function* () {
+        //         for (const [fieldName, fieldType] of Object.entries(recordDescription ) ) {
+        //           yield /** @satisfies {[{}, {}]} */ ([fieldName, fieldType.call(this1) ]) ;
+        //         }
+        //       } )
+        //   ))
+        // )
+        this1.parseStructExact(recordDescription)
+      ) ;
     }
+  }) )] ;
+};
+
+/**
+ * Parse a list of records.
+ * Record count is optional, if omitted it is read from the stream.
+ * Example of recordDescription: `{ sequenceIndex: Parser.uShort, lookupListIndex: Parser.uShort }`.
+ * 
+ * @param {Parameters<typeof parseFitcGArgs<{}, ActualSrcDict | PseFnAny> >} args
+ * 
+ * @template {{ [key : (string | number)]: URT ; } } ActualSrcDict
+ * 
+ * @returns {{ [k in keyof ActualSrcDict ]: ReturnType<ActualSrcDict[k]> }[] }
+ * 
+ */
+Parser.prototype.parseRecordList = function(...args)
+{
+    // If the count argument is absent, read it in the stream.
+    const {
+        count = this.parseUShort() ,
+        itemCallback: recordDescription,
+    } = parseFitcGArgs(...args) ; 
 
     const this1 = this ;
-    
-    const fields = Object.keys(recordDescription);
-    
-    return [...reiterableBy((function* () {
-      for (let i = 0; i < count; i++) {
-        yield Object.fromEntries((
+
+    return this.parseRecordListImpl({ count, }, recordDescription ) ;
+};
+
+/**
+ * Parse a list of records.
+ * Record count is optional, if omitted it is read from the stream.
+ * Example of recordDescription: `{ sequenceIndex: Parser.uShort, lookupListIndex: Parser.uShort }`.
+ * 
+ * @param {Parameters<typeof parseFitcGArgs<{}, ActualSrcDict | PseFnAny > >} args
+ * 
+ * @template {{ [key : (string | number)]: URT ; } } ActualSrcDict
+ * 
+ * @returns {{ [k in keyof ActualSrcDict ]: ReturnType<ActualSrcDict[k]> }[] }
+ * 
+ */
+Parser.prototype.parseRecordList32 = function(...args)
+{
+    // If the count argument is absent, read it in the stream.
+    const {
+        count = this.parseULong() ,
+        itemCallback: recordDescription,
+    } = parseFitcGArgs(...args) ; 
+
+    const this1 = this ;
+
+    return this.parseRecordListImpl({ count, }, recordDescription ) ;
+};
+
+/**
+ * Parse a data structure into an object.
+ * Example of description: `{ sequenceIndex: Parser.uShort, lookupListIndex: Parser.uShort }`.
+ * 
+ * @param {ActualSrcDict | PseFnAny} description
+ * @template {{ [key : (string | number)]: PseFnAny ; } } ActualSrcDict
+ * 
+ * @returns {{ [k in keyof ActualSrcDict ]: ReturnType<ActualSrcDict[k]> } }
+ * 
+ */
+Parser.prototype.parseStruct = function(description) {
+    if (typeof description === 'function') {
+        return description.call(this);
+    } else {
+        // return Object.fromEntries((
+        //     Object.entries(description)
+        //     .map(([fieldName, fieldType]) => /** @satisfies {[{}, {}]} */ ([fieldName, fieldType.call(this) ] ) )
+        // )) ;
+        return this.parseStructExact(description) ;
+    }
+};
+
+/**
+ * Parse a data structure into an object.
+ * Example of description: `{ sequenceIndex: Parser.uShort, lookupListIndex: Parser.uShort }`.
+ * 
+ * this variant forces `description` to already be *dict*s.
+ * 
+ * @param {ActualSrcDict} description
+ * @template {{ [key : (string | number)]: PseFnAny ; } } ActualSrcDict
+ * 
+ * @returns {{ [k in keyof ActualSrcDict ]: ReturnType<ActualSrcDict[k]> } }
+ * 
+ */
+Parser.prototype.parseStructExact = function(description)
+{
+  ;
+  const this1 = this ;
+  const recordDescription = description ;
+  return (
+    /** @type {{ [k in keyof ActualSrcDict ]: ReturnType<ActualSrcDict[k]> } } */
+    (
+      Object.fromEntries((
           //
           reiterableBy(function* () {
             for (const [fieldName, fieldType] of Object.entries(recordDescription ) ) {
               yield /** @satisfies {[{}, {}]} */ ([fieldName, fieldType.call(this1) ]) ;
             }
           } )
-        )) ;
-      }
-    }) )] ;
+      ))
+    )
+  ) ;
 };
 
-Parser.prototype.parseRecordList32 = function(count, recordDescription) {
-    // If the count argument is absent, read it in the stream.
-    if (!recordDescription) {
-        recordDescription = count;
-        count = this.parseULong();
-    }
-    const records = new Array(count);
-    const fields = Object.keys(recordDescription);
-    for (let i = 0; i < count; i++) {
-        const rec = {};
-        for (let j = 0; j < fields.length; j++) {
-            const fieldName = fields[j];
-            const fieldType = recordDescription[fieldName];
-            rec[fieldName] = fieldType.call(this);
-        }
-        records[i] = rec;
-    }
-    return records;
-};
-
-// Parse a data structure into an object
-// Example of description: { sequenceIndex: Parser.uShort, lookupListIndex: Parser.uShort }
-Parser.prototype.parseStruct = function(description) {
-    if (typeof description === 'function') {
-        return description.call(this);
-    } else {
-        const fields = Object.keys(description);
-        const struct = {};
-        for (let j = 0; j < fields.length; j++) {
-            const fieldName = fields[j];
-            const fieldType = description[fieldName];
-            struct[fieldName] = fieldType.call(this);
-        }
-        return struct;
-    }
-};
+/** @typedef {{ (this: Parser, ...args: any): any ; }} PseFnAny */
 
 /**
  * Parse a GPOS valueRecord
  * https://docs.microsoft.com/en-us/typography/opentype/spec/gpos#value-record
  * valueFormat is optional, if omitted it is read from the stream.
+ * 
+ * @param {number} [valueFormat]
+ * 
  */
 Parser.prototype.parseValueRecord = function(valueFormat) {
     if (valueFormat === undefined) {
@@ -514,6 +619,9 @@ Parser.prototype.parseValueRecord = function(valueFormat) {
         // in this case return undefined instead of an empty object, to save space
         return;
     }
+    /**
+     * @type {{ [k in `${"x" | "y" }${"Placement" | "Advance" }` ]: number ; } & { [k in `${"x" | "y" }${"PlaDevice" | "AdvDevice" }` ]?: number ; } }
+     */
     const valueRecord = {};
 
     if (valueFormat & 0x0001) { valueRecord.xPlacement = this.parseShort(); }
@@ -546,6 +654,14 @@ Parser.prototype.parseValueRecordList = function() {
     return values;
 };
 
+/**
+ * Parse a data structure into an object.
+ * Example of description: `{ sequenceIndex: Parser.uShort, lookupListIndex: Parser.uShort }`.
+ * 
+ * @param {ActualSrcDict | PseFnAny } description
+ * @template {{ [key : (string | number)]: PseFnAny ; } } ActualSrcDict
+ * 
+ */
 Parser.prototype.parsePointer = function(description) {
     const structOffset = this.parseOffset16();
     if (structOffset > 0) {
@@ -555,6 +671,13 @@ Parser.prototype.parsePointer = function(description) {
     return undefined;
 };
 
+/**
+ * Parse a data structure into an object.
+ * Example of description: `{ sequenceIndex: Parser.uShort, lookupListIndex: Parser.uShort }`.
+ * 
+ * @type {Parser["parsePointer"] }
+ * 
+ */
 Parser.prototype.parsePointer32 = function(description) {
     const structOffset = this.parseOffset32();
     if (structOffset > 0) {
@@ -569,7 +692,10 @@ Parser.prototype.parsePointer32 = function(description) {
  * or a list of offsets to lists of offsets to any kind of items.
  * If itemCallback is not provided, a list of list of UShort is assumed.
  * If provided, itemCallback is called on each item and must parse the item.
- * See examples in tables/gsub.js
+ * See examples in `tables/gsub.js`
+ * 
+ * @param {(this : Parser) => T } [itemCallback]
+ * 
  */
 Parser.prototype.parseListOfLists = function(itemCallback) {
     const offsets = this.parseOffset16List();
@@ -577,7 +703,7 @@ Parser.prototype.parseListOfLists = function(itemCallback) {
     const relativeOffset = this.relativeOffset;
     const list = new Array(count);
     for (let i = 0; i < count; i++) {
-        const start = offsets[i];
+        const start = offsets[i] ?? athrow(JSON.stringify({ i, count, offsets, }) ) ;
         if (start === 0) {
             // NULL offset
             // Add i as owned property to list. Convenient with assert.
@@ -586,10 +712,11 @@ Parser.prototype.parseListOfLists = function(itemCallback) {
         }
         this.relativeOffset = start;
         if (itemCallback) {
-            const subOffsets = this.parseOffset16List();
+            const subOffsets = this.parseOffset16List() ?? athrow(JSON.stringify({ i, count, }) ) ;
             const subList = new Array(subOffsets.length);
-            for (let j = 0; j < subOffsets.length; j++) {
-                this.relativeOffset = start + subOffsets[j];
+            for (const [j, subOffset] of subOffsets.entries() )
+            {
+                this.relativeOffset = start + subOffset ;
                 subList[j] = itemCallback.call(this);
             }
             list[i] = subList;
@@ -608,10 +735,10 @@ Parser.prototype.parseListOfLists = function(itemCallback) {
  * https://www.microsoft.com/typography/OTSPEC/chapter2.htm
  * parser.offset must point to the start of the table containing the coverage.
  * 
- * @returns {KTCoverageTableImpl }
+ * @returns {KtOtjsSupportedOtfCoverageTableImpl }
  * 
  */
-Parser.prototype.parseCoverage = function() {
+Parser.prototype.parseCoverage = /** @return {KtOtjsSupportedOtfCoverageTableImpl } */ function() {
     const startOffset = this.offset + this.relativeOffset;
     const format = this.parseUShort();
     const count = this.parseUShort();
@@ -621,6 +748,7 @@ Parser.prototype.parseCoverage = function() {
             glyphs: this.parseUShortList(count)
         };
     } else if (format === 2) {
+        /** @type {Array<(Extract<KtOtjsSupportedOtfCoverageTableImpl, { format: 2, } >)["ranges"][number] > } */
         const ranges = new Array(count);
         for (let i = 0; i < count; i++) {
             ranges[i] = {
@@ -634,19 +762,22 @@ Parser.prototype.parseCoverage = function() {
             ranges: ranges
         };
     }
-    throw new Error(`0x${startOffset.toString(16)}: Coverage format must be 1 or 2.`);
+    throw new Error(`0x${startOffset.toString(16)}: CoverageEcdTable format must be 1 or 2.`);
 };
 
-// Parse a Class Definition Table in a GSUB, GPOS or GDEF table.
-// https://www.microsoft.com/typography/OTSPEC/chapter2.htm
-Parser.prototype.parseClassDef = function() {
+/**
+ * Parse a Class Definition Table in a GSUB, GPOS or GDEF table.
+ * https://www.microsoft.com/typography/OTSPEC/chapter2.htm
+ * 
+ */
+Parser.prototype.parseClassDef = /** @return {KtOtjsSupportedOtfClassDefTableImpl } */ function() {
     const startOffset = this.offset + this.relativeOffset;
     const format = this.parseUShort();
     if (format === 1) {
         return {
             format: 1,
             startGlyph: this.parseUShort(),
-            classes: this.parseUShortList()
+            classes: this.parseUShortList(),
         };
     } else if (format === 2) {
         return {
@@ -659,7 +790,7 @@ Parser.prototype.parseClassDef = function() {
         };
     }
 
-    console.warn(`0x${startOffset.toString(16)}: This font file uses an invalid ClassDef format of ${format}. It might be corrupted and should be reacquired if it doesn't display as intended.`);
+    console.warn(`unsupported table format: this font file uses an invalid ClassDef Table format of ${format}. it might be corrupted and should be reacquired if it doesn't display as intended. (error at 0x${startOffset.toString(16)} ). `);
     return {
         format: format
     };
@@ -691,15 +822,15 @@ Parser.pointer = RFRTK("parsePointer");
 
 Parser.pointer32 = RFRTK("parsePointer32");
 
-Parser.tag = Parser.prototype.parseTag;
-Parser.byte = Parser.prototype.parseByte;
-Parser.uShort = Parser.offset16 = Parser.prototype.parseUShort;
-Parser.uShortList = Parser.prototype.parseUShortList;
-Parser.uInt24 = Parser.prototype.parseUInt24;
-Parser.uLong = Parser.offset32 = Parser.prototype.parseULong;
-Parser.uLongList = Parser.prototype.parseULongList;
-Parser.fixed = Parser.prototype.parseFixed;
-Parser.f2Dot14 = Parser.prototype.parseF2Dot14;
+/** @type {(...args: never) => string } */ Parser.tag = Parser.prototype.parseTag;
+/** @type {(...args: never) => number } */ Parser.byte = Parser.prototype.parseByte;
+/** @type {(...args: never) => number } */ Parser.uShort = Parser.offset16 = Parser.prototype.parseUShort;
+/** @type {(...args: never) => number } */ Parser.uInt24 = Parser.prototype.parseUInt24;
+/** @type {(...args: never) => number } */ Parser.uLong = Parser.offset32 = Parser.prototype.parseULong;
+/** @type {(...args: never) => number } */ Parser.fixed = Parser.prototype.parseFixed;
+/** @type {(...args: never) => number } */ Parser.f2Dot14 = Parser.prototype.parseF2Dot14;
+/** @type {(...args: never) => number[] } */ Parser.uShortList = Parser.prototype.parseUShortList;
+/** @type {(...args: never) => number[] } */ Parser.uLongList = Parser.prototype.parseULongList;
 Parser.struct = Parser.prototype.parseStruct;
 Parser.coverage = Parser.prototype.parseCoverage;
 Parser.classDef = Parser.prototype.parseClassDef;
@@ -739,7 +870,7 @@ Parser.prototype.parseFeatureList = function() {
 Parser.prototype.parseLookupList = function(lookupTableParsers) {
     return this.parsePointer(Parser.list(Parser.pointer(function() {
         const lookupType = this.parseUShort();
-        check.argument(1 <= lookupType && lookupType <= 9, 'GPOS/GSUB lookup type ' + lookupType + ' unknown.');
+        check.argument(1 <= lookupType && lookupType <= 9, `GPOS/GSUB lookup type ${lookupType} unknown.`);
         const lookupFlag = this.parseUShort();
         const useMarkFilteringSet = lookupFlag & 0x10;
         return {
@@ -755,7 +886,7 @@ Parser.prototype.parseFeatureVariationsList = function() {
     return this.parsePointer32(function() {
         const majorVersion = this.parseUShort();
         const minorVersion = this.parseUShort();
-        check.argument(majorVersion === 1 && minorVersion < 1, 'GPOS/GSUB feature variations table unknown.');
+        check.argument(majorVersion === 1 && minorVersion < 1, `GPOS/GSUB feature variations table unknown.`);
         const featureVariations = this.parseRecordList32({
             conditionSetOffset: Parser.offset32,
             featureTableSubstitutionOffset: Parser.offset32
@@ -780,11 +911,11 @@ Parser.prototype.parseVariationStore = function() {
 
 Parser.prototype.parseItemVariationStore = function() {
     const itemStoreOffset = this.relativeOffset;
-    const iVStore = {
+    const iVStore = /** @type {{ format: number ; variationRegions: ReturnType<Parser["parseVariationRegionList"] > ; itemVariationSubtables: ReturnType<Parser["parseItemVariationSubtable"] >[] }} */ ({
         format: this.parseUShort(),
         variationRegions: [],
         itemVariationSubtables: []
-    };
+    });
 
     const variationRegionListOffset = this.parseOffset32();
     const itemVariationDataCount = this.parseUShort();
@@ -826,6 +957,11 @@ Parser.prototype.parseItemVariationSubtable = function() {
     return subtable;
 };
 
+/**
+ * 
+ * @param {number} itemCount
+ * @param {number} wordDeltaCount
+ */
 Parser.prototype.parseDeltaSets = function(itemCount, wordDeltaCount) {
     const deltas = [];
     const longFlag = wordDeltaCount & masks.LONG_WORDS;

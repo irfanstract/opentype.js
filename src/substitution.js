@@ -268,7 +268,7 @@ Substitution.prototype.addAlternate = function(feature, substitution, script, la
  */
 Substitution.prototype.addLigature = function(feature, ligature, script, language) {
     const lookupTable = this.getLookupTables(script, language, feature, 4, true)[0] ?? athrow(`missing table for: ${JSON.stringify({ script, language, feature }) }`) ;
-    /** @type {KTOTGSubtable} */
+    /** @type {KtOtfGSubtable} */
     let subtable = (
         lookupTable.subtables[0] ??= {                // lookup type 4 subtable, format 1, coverage format 1
             substFormat: 1,
