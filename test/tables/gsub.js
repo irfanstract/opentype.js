@@ -182,7 +182,7 @@ describe('tables/gsub.js', function() {
 
     it('can parse lookup5 substFormat 3', function() {
         // https://www.microsoft.com/typography/OTSPEC/GSUB.htm#EX9
-        // Coverage offsets (0030, 004C, 006E) seem wrong in the example.
+        // CoverageEcdTable offsets (0030, 004C, 006E) seem wrong in the example.
         // var data = '0003 0003 0002 0030 004C 006E 0000 0001 0002 0002'
         const data = '0003 0003 0002 0014 0030 0052 0000 0001 0002 0002' +                // ContextSubstFormat3
             '0001 000C 0033 0035 0037 0038 0039 003B 003C 003D 0041 0042 0045 004A' +   // coverage format 1

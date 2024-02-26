@@ -167,7 +167,7 @@ describe('parse.js', function() {
     });
 
     describe('parseScriptList', function() {
-        it('should parse a ScriptList table', function() {
+        it('should parse a ScriptListEcdTable table', function() {
             // https://www.microsoft.com/typography/OTSPEC/chapter2.htm Examples 1 & 2
             const data = '0004 1234' +                // coverageOffset + filler
                 '0003 68616E69 0014 6B616E61 0018 6C61746E 001C' +  // Example 1
@@ -200,7 +200,7 @@ describe('parse.js', function() {
     });
 
     describe('parseFeatureList', function() {
-        it('should parse a FeatureList table', function() {
+        it('should parse a FeatureListEcdTable table', function() {
             // https://www.microsoft.com/typography/OTSPEC/chapter2.htm Example 3
             const data = '0004 0000' +                                // table offset + filler
                 '0003 6C696761 0014 6C696761 001A 6C696761 0022' +  // feature list
@@ -217,7 +217,7 @@ describe('parse.js', function() {
     });
 
     describe('parseLookupList', function() {
-        it('should parse a LookupList table', function() {
+        it('should parse a LookupListEcdTable table', function() {
             // https://www.microsoft.com/typography/OTSPEC/chapter2.htm Example 4
             const data = '0004 0000' +                    // table offset + filler
                 '0003 0008 0010 0018' +                 // lookup list

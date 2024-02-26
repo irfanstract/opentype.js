@@ -117,9 +117,9 @@ const subtableMakers = new Array(10);
 function makeGposTable(gpos) {
     return new table.Table('GPOS', [
         {name: 'version', type: 'ULONG', value: 0x10000},
-        {name: 'scripts', type: 'TABLE', value: new table.ScriptList(gpos.scripts)},
-        {name: 'features', type: 'TABLE', value: new table.FeatureList(gpos.features)},
-        {name: 'lookups', type: 'TABLE', value: new table.LookupList(gpos.lookups, subtableMakers)}
+        {name: 'scripts', type: 'TABLE', value: new table.ScriptListEcdTable(gpos.scripts)},
+        {name: 'features', type: 'TABLE', value: new table.FeatureListEcdTable(gpos.features)},
+        {name: 'lookups', type: 'TABLE', value: new table.LookupListEcdTable(gpos.lookups, subtableMakers)}
     ]);
 }
 

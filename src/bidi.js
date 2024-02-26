@@ -34,7 +34,7 @@ import unicodeVariationSequences from './features/unicode/variationSequences.js'
 function Bidi(baseDirArg ) {
     this.baseDir = baseDirArg ?? 'ltr';
     this.tokenizer = new Tokenizer();
-    /** @type {{ [s: string]: KTFeature["tags"] ; }} */
+    /** @type {{ [s: string]: KtOtfFeature["tags"] ; }} */
     this.featuresTags = {};
 }
 
@@ -115,7 +115,7 @@ function reverseArabicSentences() {
 /**
  * Register supported features tags
  * @param {BdWritingSystemId} script script tag
- * @param {KTFeature["tags"] } tags features tags list
+ * @param {KtOtfFeature["tags"] } tags features tags list
  */
 Bidi.prototype.registerFeatures = function (script, tags) {
     const supportedTags = tags.filter(
@@ -133,7 +133,7 @@ Bidi.prototype.registerFeatures = function (script, tags) {
 /**
  * Apply GSUB features
  * @param {Font} font opentype font instance
- * @param {KTFeature[] } features
+ * @param {KtOtfFeature[] } features
  */
 Bidi.prototype.applyFeatures = function (font, features) {
     if (!font) throw new Error(
@@ -282,7 +282,7 @@ Bidi.prototype.applyFeaturesToContexts = function () {
 /**
  * Check whatever feature is successfully enabled for a script
  * @param {BdWritingSystemId} script
- * @param {KTFeature["tags"][number] } tag feature name
+ * @param {KtOtfFeature["tags"][number] } tag feature name
  * @returns {boolean}
  */
 Bidi.prototype.hasFeatureEnabled = function(script, tag) {

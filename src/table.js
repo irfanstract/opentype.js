@@ -37,7 +37,7 @@ class Table
   /**
    * @exports opentype.Table 
    * @param {string} tableName
-   * @param {TableFieldDescriptorByTnV<string, unknown > [] } fields
+   * @param {TableFieldDescriptorByTnV<string, unknown > [] | null } fields
    * @param {{ [key: string]: unknown ; }} [options] 
    */
   constructor (tableName, fields, options)
@@ -57,13 +57,55 @@ class Table
       Object.assign(this, options ) ;
     }
 
-    // TODO
-    /** @type {number=} */
-    this.format ;
-    /** @type {number=} */
-    this.coverageFormat ;
   }
 }
+
+const otjsPreShapedTableConstructorVersioned = (
+  /**
+   * 
+   * @param vh  the version-to-desc map
+   * @param ivt you should leave this unset ; internally this is auxiliary
+   * @type {<const tableNameT extends string, const definedTableFields extends TableFieldDescriptorByNameField<string>[] >(clsName: tableNameT , ivt ?: { DefinedFields: definedTableFields[] } ) => (new (fields: definedTableFields ) => Table & OtscByFieldNameArrayAsDict<definedTableFields[number]> ) }
+   */
+  function createTableClass(clsName, ivt = { DefinedFields: [] } ) {
+    // clsName, fields
+    const C = class extends Table {
+      get [Symbol.toStringTag]() { return clsName + "Table" ; }
+      /**
+       * @param {(typeof ivt)["DefinedFields"][number]} fields 
+       */
+      constructor(fields) {
+        super(clsName, fields) ;
+      }
+    } ;
+    return C ;
+  }
+) ;
+
+/**
+ * @typedef {{ fieldDescs: TableFieldDescriptorByNameField<DefinedFieldName>[] } } OtscTbdsc
+ * 
+ * @property fieldDescs
+ * 
+ * @template {string } [DefinedFieldName=string]
+ * 
+ */
+
+/**
+ * @typedef {{ readonly [v in SupportedVersionNumber]: OtscTbdsc<DefinedFieldName> ; } } OtscVersionalTbdsc
+ * 
+ * @template {string | number | symbol } SupportedVersionNumber
+ * 
+ * @template {string } [DefinedFieldName=string]
+ * 
+ */
+
+/**
+ * @typedef {{ readonly [v in fieldDescs[number]["name"] ]: fieldDescs[number]["value"] ; } } OtscByFieldNameArrayAsDict
+ * 
+ * @template { TableFieldDescriptorByNameField<string>[] } fieldDescs
+ * 
+ */
 
 /**
  * {@link Table }, refined according to the {@link TableFieldDescriptorByNameField}s passed
@@ -203,18 +245,22 @@ export {
 
 // Common Layout Tables
 
-/* a template for declaring these `YyyTable`s */
-// /** @type {new (...args: ConstructorParameters<typeof Table>) => (Table) } */
-// const SbTable = Table ;
-
-/** @type {new (...args: ConstructorParameters<typeof Table>) => (Table & KTCoverageTableFmts1[1 | 2] ) } */
-const CTableBase = Table ;
-// /** @type {new (...args: ConstructorParameters<typeof Table>) => (Table & KTCoverageTableFmts1[1 | 2] ) } CTable */
+const CTableBase1 = (
+  otjsPreShapedTableConstructorVersioned('coverageTable' , {
+    DefinedFields: 
+    /**
+     * @type {(
+     *   | [(TableFieldDescriptorByNmAndTypeAndValue<'coverageFormat', 'USHORT', 1> ) , ...(TableFieldDescriptorByNmAndTypeAndValue<`glyph${number}` | "glyphCount", "USHORT", {}> )[] ]
+     *   | [(TableFieldDescriptorByNmAndTypeAndValue<'coverageFormat', 'USHORT', 2> ) , ...(TableFieldDescriptorByNmAndTypeAndValue<string, "TAG" | "TABLE" | "USHORT", {}>        )[] ]
+     * )[] }
+     *  */ ([]) ,
+  } )
+) ;
 
 /**
  * 
  */
-class Coverage extends CTableBase
+class CoverageEcdTable extends CTableBase1
 {
   /**
    * 
@@ -224,7 +270,7 @@ class Coverage extends CTableBase
    */
   constructor(coverageTable)
   {
-    super('coverageTable', (
+    super((
       coverageTable.format === 1 ?
       [{name: 'coverageFormat', type: 'USHORT', value: 1} , ... ushortList('glyph', coverageTable.glyphs) ]
       :
@@ -239,8 +285,9 @@ class Coverage extends CTableBase
       }) ]
       :
 
-      athrow(`[Coverage.new] only supporting format 1 or 2 - instead got ${coverageTable} .`)
+      athrow(`[CoverageEcdTable.new] only supporting format 1 or 2 - instead got ${coverageTable} .`)
     ) ) ;
+
   }
 }
 
@@ -251,7 +298,7 @@ const SlTableBase = Table ;
  * 
  * @class
  */
-class ScriptList extends SlTableBase
+class ScriptListEcdTable extends SlTableBase
 {
   /**
    * 
@@ -291,7 +338,7 @@ class ScriptList extends SlTableBase
   }
 }
 
-class FeatureList extends Table
+class FeatureListEcdTable extends Table
 {
   /**
    * 
@@ -330,7 +377,7 @@ const LlTableBase = Table ;
  * 
  * @class
  */
-class LookupList extends LlTableBase
+class LookupListEcdTable extends LlTableBase
 {
   /**
    * 
@@ -341,7 +388,7 @@ class LookupList extends LlTableBase
   constructor(lookupListTable, subtableMakers)
   {
     super('lookupListTable', tableList('lookup', lookupListTable, function(lookupTable) {
-        let subtableCallback = subtableMakers[lookupTable.lookupType] ?? athrow(`[LookupList.new] [subtableCallback] nf`) ;
+        let subtableCallback = subtableMakers[lookupTable.lookupType] ?? athrow(`[LookupListEcdTable.new] [subtableCallback] nf`) ;
 
         check.assert(!!subtableCallback, 'Unable to write GSUB lookup type ' + lookupTable.lookupType + ' tables.');
         return new Table('lookupTable', [
@@ -366,7 +413,7 @@ class LookupList extends LlTableBase
 class ClassDefImpl extends Table
 {
   /**
-   * @exports opentype.ClassDef
+   * @exports opentype.ClassDefEcdTable
    * @class
    * @param {( CdeTableD )} classDefTable
    * @constructor
@@ -404,34 +451,28 @@ class ClassDefImpl extends Table
           ] ,
       ] :
       
-      athrow(`[ClassDef.new] only supporting format 1 or 2 - instead got ${classDefTable} .`)
+      athrow(`[ClassDefEcdTable.new] only supporting format 1 or 2 - instead got ${classDefTable} .`)
     ) ; return args ; } )() ) ;
 
     /* (re)declaring here as work-around until this thing start working */
 
-    /** @type {CdeTableD["format"]} */
-    this.format ;
-    /** @type {(CdeTableD & { format: 1 } )["startGlyph"] =} */
-    this.startGlyph ;
-    /** @type {(CdeTableD & { format: 2 } )["ranges"] =} */
-    this.ranges ;
   }
 }
 
-/** @typedef {ClassDefImpl & CdeTableD } ClassDef */
-/** @type {new (...args: ConstructorParameters<typeof Table>) => ClassDef } */
-const ClassDef = ClassDefImpl ;
+/** @typedef {ClassDefImpl & CdeTableD } ClassDefEcdTable */
+/** @type {new (...args: ConstructorParameters<typeof Table>) => ClassDefEcdTable } */
+const ClassDefEcdTable = ClassDefImpl ;
 
 // Record = same as Table, but inlined (a Table has an offset and its data is further in the stream)
 // Don't use offsets inside Records (probable bug), only in Tables.
 export default {
     Table,
     Record: Table,
-    Coverage,
-    ClassDef,
-    ScriptList,
-    FeatureList,
-    LookupList,
+    CoverageEcdTable,
+    ClassDefEcdTable,
+    ScriptListEcdTable,
+    FeatureListEcdTable,
+    LookupListEcdTable,
     ushortList,
     tableList,
     recordList,
@@ -440,9 +481,10 @@ export default {
 export {
   //
   Table,
-  Coverage,
-  ClassDef,
-  ScriptList,
-  FeatureList,
-  LookupList,
+  otjsPreShapedTableConstructorVersioned ,
+  CoverageEcdTable,
+  ClassDefEcdTable,
+  ScriptListEcdTable,
+  FeatureListEcdTable,
+  LookupListEcdTable,
 } ;

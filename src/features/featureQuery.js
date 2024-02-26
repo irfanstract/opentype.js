@@ -35,7 +35,7 @@ function SubstitutionAction(action) {
 /**
  * Lookup a coverage table
  * @param {number} glyphIndex glyph index
- * @param {CoverageTable} coverage coverage table
+ * @param {CoverageTableEcdTable} coverage coverage table
  */
 function lookupCoverage(glyphIndex, coverage) {
     if (!glyphIndex) return -1;

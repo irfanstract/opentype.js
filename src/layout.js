@@ -3,7 +3,7 @@
 
 import { athrow, } from './athrow.mjs';
 
-import { Table, ClassDef, Coverage } from './table.js';
+import { Table, ClassDefEcdTable, CoverageEcdTable } from './table.js';
 
 import check from './check.js';
 
@@ -279,7 +279,7 @@ class Layout {
     getLookupTables (script, language, feature, lookupType, create)
     {
         const featureTable = this.getFeatureTable(script, language, feature, create);
-        const tables = /** @type {KTOTSubtabular[] } */ ([]);
+        const tables = /** @type {KtOtfSubtabular[] } */ ([]);
         if (featureTable) {
             let lookupTable;
             const lookupListIndexes = featureTable.lookupListIndexes;
@@ -310,7 +310,7 @@ class Layout {
     /**
      * Find a glyph in a class definition table
      * https://docs.microsoft.com/en-us/typography/opentype/spec/chapter2#class-definition-table
-     * @param {ClassDef} classDefTable - an OpenType Layout class definition table
+     * @param {ClassDefEcdTable} classDefTable - an OpenType Layout class definition table
      * @param {number} glyphIndex - the index of the glyph to find
      * @returns number, or -1 if not found
      */
@@ -334,7 +334,7 @@ class Layout {
     /**
      * Find a glyph in a coverage table
      * https://docs.microsoft.com/en-us/typography/opentype/spec/chapter2#coverage-table
-     * @param {Coverage} coverageTable - an OpenType Layout coverage table
+     * @param {CoverageEcdTable} coverageTable - an OpenType Layout coverage table
      * @param {number} glyphIndex - the index of the glyph to find
      * @returns number, or -1 if not found
      */
@@ -358,7 +358,7 @@ class Layout {
      * Format 1: the list is stored raw
      * Format 2: compact list as range records.
      * @instance
-     * @param  {KTKerningLookupTable["subtables"][number]["coverage"] } coverageTable
+     * @param  {KtOtfKerningLookupTable["subtables"][number]["coverage"] } coverageTable
      * 
      */
     expandCoverage (coverageTable)
@@ -383,7 +383,7 @@ class Layout {
 }
 
 /**
- * @typedef {KTScript } XScript
+ * @typedef {KtOtfScript } XScript
  * 
  */
 

@@ -218,13 +218,13 @@ subtableMakers[1] = function makeLookup1(subtable) {
     if (subtable.substFormat === 1) {
         return new table.Table('substitutionTable', [
             {name: 'substFormat', type: 'USHORT', value: 1},
-            {name: 'coverage', type: 'TABLE', value: new table.Coverage(subtable.coverage)},
+            {name: 'coverage', type: 'TABLE', value: new table.CoverageEcdTable(subtable.coverage)},
             {name: 'deltaGlyphID', type: 'SHORT', value: subtable.deltaGlyphId}
         ]);
     } else if (subtable.substFormat === 2) {
         return new table.Table('substitutionTable', [
             {name: 'substFormat', type: 'USHORT', value: 2},
-            {name: 'coverage', type: 'TABLE', value: new table.Coverage(subtable.coverage)}
+            {name: 'coverage', type: 'TABLE', value: new table.CoverageEcdTable(subtable.coverage)}
         ].concat(table.ushortList('substitute', subtable.substitute)));
     }
     check.fail('Lookup type 1 substFormat must be 1 or 2.');
@@ -234,7 +234,7 @@ subtableMakers[2] = function makeLookup2(subtable) {
     check.assert(subtable.substFormat === 1, 'Lookup type 2 substFormat must be 1.');
     return new table.Table('substitutionTable', [
         {name: 'substFormat', type: 'USHORT', value: 1},
-        {name: 'coverage', type: 'TABLE', value: new table.Coverage(subtable.coverage)}
+        {name: 'coverage', type: 'TABLE', value: new table.CoverageEcdTable(subtable.coverage)}
     ].concat(table.tableList('seqSet', subtable.sequences, function(sequenceSet) {
         return new table.Table('sequenceSetTable', table.ushortList('sequence', sequenceSet));
     })));
@@ -244,7 +244,7 @@ subtableMakers[3] = function makeLookup3(subtable) {
     check.assert(subtable.substFormat === 1, 'Lookup type 3 substFormat must be 1.');
     return new table.Table('substitutionTable', [
         {name: 'substFormat', type: 'USHORT', value: 1},
-        {name: 'coverage', type: 'TABLE', value: new table.Coverage(subtable.coverage)}
+        {name: 'coverage', type: 'TABLE', value: new table.CoverageEcdTable(subtable.coverage)}
     ].concat(table.tableList('altSet', subtable.alternateSets, function(alternateSet) {
         return new table.Table('alternateSetTable', table.ushortList('alternate', alternateSet));
     })));
@@ -254,7 +254,7 @@ subtableMakers[4] = function makeLookup4(subtable) {
     check.assert(subtable.substFormat === 1, 'Lookup type 4 substFormat must be 1.');
     return new table.Table('substitutionTable', [
         {name: 'substFormat', type: 'USHORT', value: 1},
-        {name: 'coverage', type: 'TABLE', value: new table.Coverage(subtable.coverage)}
+        {name: 'coverage', type: 'TABLE', value: new table.CoverageEcdTable(subtable.coverage)}
     ].concat(table.tableList('ligSet', subtable.ligatureSets, function(ligatureSet) {
         return new table.Table('ligatureSetTable', table.tableList('ligature', ligatureSet, function(ligature) {
             return new table.Table('ligatureTable',
@@ -269,7 +269,7 @@ subtableMakers[5] = function makeLookup5(subtable) {
     if (subtable.substFormat === 1) {
         return new table.Table('contextualSubstitutionTable', [
             {name: 'substFormat', type: 'USHORT', value: subtable.substFormat},
-            {name: 'coverage', type: 'TABLE', value: new table.Coverage(subtable.coverage)}
+            {name: 'coverage', type: 'TABLE', value: new table.CoverageEcdTable(subtable.coverage)}
         ].concat(table.tableList('sequenceRuleSet', subtable.ruleSets, function(sequenceRuleSet) {
             if (!sequenceRuleSet) {
                 return new table.Table('NULL', null);
@@ -294,8 +294,8 @@ subtableMakers[5] = function makeLookup5(subtable) {
     } else if (subtable.substFormat === 2) {
         return new table.Table('contextualSubstitutionTable', [
             {name: 'substFormat', type: 'USHORT', value: subtable.substFormat},
-            {name: 'coverage', type: 'TABLE', value: new table.Coverage(subtable.coverage)},
-            {name: 'classDef', type: 'TABLE', value: new table.ClassDef(subtable.classDef)}
+            {name: 'coverage', type: 'TABLE', value: new table.CoverageEcdTable(subtable.coverage)},
+            {name: 'classDef', type: 'TABLE', value: new table.ClassDefEcdTable(subtable.classDef)}
         ].concat(table.tableList('classSeqRuleSet', subtable.classSets, function(classSeqRuleSet) {
             if (!classSeqRuleSet) {
                 return new table.Table('NULL', null);
@@ -321,7 +321,7 @@ subtableMakers[5] = function makeLookup5(subtable) {
         tableData.push({name: 'substitutionCount', type: 'USHORT', value: subtable.lookupRecords.length});
         for(let i = 0; i < subtable.coverages.length; i++) {
             const coverage = subtable.coverages[i];
-            tableData.push({name: 'inputCoverage' + i, type: 'TABLE', value: new table.Coverage(coverage)});
+            tableData.push({name: 'inputCoverage' + i, type: 'TABLE', value: new table.CoverageEcdTable(coverage)});
         }
 
         for(let i = 0; i < subtable.lookupRecords.length; i++) {
@@ -343,7 +343,7 @@ subtableMakers[6] = function makeLookup6(subtable) {
     if (subtable.substFormat === 1) {
         let returnTable = new table.Table('chainContextTable', [
             {name: 'substFormat', type: 'USHORT', value: subtable.substFormat},
-            {name: 'coverage', type: 'TABLE', value: new table.Coverage(subtable.coverage)}
+            {name: 'coverage', type: 'TABLE', value: new table.CoverageEcdTable(subtable.coverage)}
         ].concat(table.tableList('chainRuleSet', subtable.chainRuleSets, function(chainRuleSet) {
             return new table.Table('chainRuleSetTable', table.tableList('chainRule', chainRuleSet, function(chainRule) {
                 let tableData = table.ushortList('backtrackGlyph', chainRule.backtrack, chainRule.backtrack.length)
@@ -371,19 +371,19 @@ subtableMakers[6] = function makeLookup6(subtable) {
         tableData.push({name: 'backtrackGlyphCount', type: 'USHORT', value: subtable.backtrackCoverage.length});
         for(let i = 0; i < subtable.backtrackCoverage.length; i++) {
             const coverage = subtable.backtrackCoverage[i];
-            tableData.push({name: 'backtrackCoverage' + i, type: 'TABLE', value: new table.Coverage(coverage)});
+            tableData.push({name: 'backtrackCoverage' + i, type: 'TABLE', value: new table.CoverageEcdTable(coverage)});
         }
         tableData.push({name: 'inputGlyphCount', type: 'USHORT', value: subtable.inputCoverage.length});
         
         for(let i = 0; i < subtable.inputCoverage.length; i++) {
             const coverage = subtable.inputCoverage[i];
-            tableData.push({name: 'inputCoverage' + i, type: 'TABLE', value: new table.Coverage(coverage)});
+            tableData.push({name: 'inputCoverage' + i, type: 'TABLE', value: new table.CoverageEcdTable(coverage)});
         }
         tableData.push({name: 'lookaheadGlyphCount', type: 'USHORT', value: subtable.lookaheadCoverage.length});
         
         for(let i = 0; i < subtable.lookaheadCoverage.length; i++) {
             const coverage = subtable.lookaheadCoverage[i];
-            tableData.push({name: 'lookaheadCoverage' + i, type: 'TABLE', value: new table.Coverage(coverage)});
+            tableData.push({name: 'lookaheadCoverage' + i, type: 'TABLE', value: new table.CoverageEcdTable(coverage)});
         }
 
         tableData.push({name: 'substitutionCount', type: 'USHORT', value: subtable.lookupRecords.length});
@@ -405,9 +405,9 @@ subtableMakers[6] = function makeLookup6(subtable) {
 function makeGsubTable(gsub) {
     return new table.Table('GSUB', [
         {name: 'version', type: 'ULONG', value: 0x10000},
-        {name: 'scripts', type: 'TABLE', value: new table.ScriptList(gsub.scripts)},
-        {name: 'features', type: 'TABLE', value: new table.FeatureList(gsub.features)},
-        {name: 'lookups', type: 'TABLE', value: new table.LookupList(gsub.lookups, subtableMakers)}
+        {name: 'scripts', type: 'TABLE', value: new table.ScriptListEcdTable(gsub.scripts)},
+        {name: 'features', type: 'TABLE', value: new table.FeatureListEcdTable(gsub.features)},
+        {name: 'lookups', type: 'TABLE', value: new table.LookupListEcdTable(gsub.lookups, subtableMakers)}
     ]);
 }
 
