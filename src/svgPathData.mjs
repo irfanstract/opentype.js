@@ -170,7 +170,7 @@ GPolySplineDesc.fromSVG = function (pathDataArg, optionsArg = {}) {
      */
     constructor (d )
     {
-      /** @type {readonly ({ type: GpsbSplineSegmentCoord["type"], value: readonly string[], relative: boolean; }) [] } */
+      /** @type {readonly ({ type: GpsbSplineSegmentCoord["type"] | ("H" | "V"), value: readonly string[], relative: boolean; }) [] } */
       this.buffer1 ;
 
       Object.assign(this, d) ;

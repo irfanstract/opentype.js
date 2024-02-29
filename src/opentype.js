@@ -539,3 +539,8 @@ export {
 // export {
 //   load ,
 // } from "./opentype_sv.mjs" ;
+
+// export { default as packageInfo } from '../package.json';
+
+import * as sim from "./extras/sim.mjs" ;
+export { sim, } ;

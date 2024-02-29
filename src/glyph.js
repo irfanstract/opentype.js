@@ -1,16 +1,24 @@
 // The Glyph object
 
-import { athrow, } from './athrow.mjs';
+import { athrow, assertionFail } from './athrow.mjs';
+import * as check from './check.js';
+import { reiterableBy, } from './itertools.mjs';
 
-import check from './check.js';
+import { GPolySplineDesc, } from './svgPathDataRepr.mjs';
+import { SVGOutputOptions, } from './svgPathData.mjs';
 import draw from './draw.js';
-import Path from './path.js';
-// import glyf from './tables/glyf' Can't be imported here, because it's a circular dependency
+import Path, { drawPointsInPath } from './path.js';
+// import glyf from './tables/glyf' ; // Can't be imported here, because it's a circular dependency
 
-// import Font from './font.js';
+// import Font from './font.js'; // Can't be imported here, because it's a circular dependency
 /** @typedef {import("./font.js").default } Font */
 import BoundingBox from './bbox.js';
 
+/**
+ * 
+ * @param {Glyph} glyph
+ * @param {() => Path} path
+ */
 function getPathDefinition(glyph, path) {
     let _path = path || new Path();
     return {
@@ -33,8 +41,9 @@ function getPathDefinition(glyph, path) {
 /**
  * @typedef {Object} GlyphOptions
  * @property {string} [name] - The glyph name
+ * @property {Font} [font]
  * @property {number} [unicode]
- * @property {Array} [unicodes]
+ * @property {Array<number> } [unicodes]
  * @property {number} [xMin]
  * @property {number} [yMin]
  * @property {number} [xMax]
@@ -66,7 +75,7 @@ function Glyph(options) {
 
     /** @type {Path } */
     this.path ;
-    /** @type {{ x: number ; y: number ; }[] } */
+    /** @type {({ x: number ; y: number ; } & ({ onCurve: boolean, lastPointOfContour: boolean, } | { onCurve ?: never, lastPointOfContour ?: never, }) )[] } */
     this.points ;
     /** @type {{}[] } */
     this.glyphs ;
@@ -74,6 +83,63 @@ function Glyph(options) {
     this.unicodes ;
     /** @type {GlyphOptions["index"] & {} } */
     this.index ;
+
+    /**
+     * these are to be initialised elsewhere!
+     * this is more'a a short-term work-around thru'a the codebase.
+     */
+    ;
+
+    /** @type {(-1 | KtOtjsQuant )= } */ this.numberOfContours ;
+    /** @type {number= } */ this._xMin ;
+    /** @type {number= } */ this._yMin ;
+    /** @type {number= } */ this._xMax ;
+    /** @type {number= } */ this._yMax ;
+
+    /** @type {KtOtjsI[] = } */ this.endPointIndices ;
+    //     const component = {
+    //         glyphIndex: p.parseUShort(),
+    //         xScale: 1,
+    //         scale01: 0,
+    //         scale10: 0,
+    //         yScale: 1,
+    //         dx: 0,
+    //         dy: 0
+    //     };
+    /** @type {({ glyphIndex: number, matchedPoints?: [number, number], } & KtOtjsTransformMatrix2D )[] = } */ this.components ;
+    /** @type {KtOtjsQuant   = } */ this.instructionLength ;
+    /** @type {OtjsTtInstruction[] = } */ this.instructions ;
+
+    // glyph.numberOfContours = glyfHeaParsed.numberOfContours ;
+    // glyph._xMin = glyfHeaParsed.xMin;
+    // glyph._yMin = glyfHeaParsed.yMin;
+    // glyph._xMax = glyfHeaParsed.xMax;
+    // glyph._yMax = glyfHeaParsed.yMax;
+
+    // this._xMin ;
+
+    // let flags;
+    // let flag;
+
+    // if (glyph.numberOfContours > 0) {
+    //     /* This glyph is not a composite. */
+
+    //     const {
+    //         endPointIndices ,
+    //         instructionLength ,
+    //         instructions ,
+    //         numberOfCoordinates ,
+    //         flags ,
+    //         points ,
+    //     } = (
+    //         parseInGlyfTtSimpleGlyphData(p, { numberOfContours: glyfHeaParsed.numberOfContours } )
+    //     ) ;
+
+    //     glyph.endPointIndices = endPointIndices ;
+    //     glyph.instructionLength = instructionLength ;
+    //     glyph.instructions = instructions ;
+
+    //     glyph.points = [...points ] ;
 
 }
 
@@ -193,10 +259,12 @@ Glyph.prototype.getPath = function(x, y, fontSize, options, font) {
         if (yScale === undefined) yScale = scale;
     }
 
+    const { strokeWidth } = this.path ;
+
     const p = new Path();
     p.fill = this.path.fill;
     p.stroke = this.path.stroke;
-    p.strokeWidth = this.path.strokeWidth * scale;
+    p.strokeWidth = (strokeWidth ?? athrow(`null-ish 'strokeWidth' property.`) ) * scale;
     for (const cmd of commands)
     {
         if (cmd.type === 'M') {
@@ -222,7 +290,7 @@ Glyph.prototype.getPath = function(x, y, fontSize, options, font) {
  * Split the glyph into contours.
  * This function is here for backwards compatibility, and to
  * provide raw access to the TrueType glyph outlines.
- * @return {Array}
+ * 
  */
 Glyph.prototype.getContours = function() {
     if (this.points === undefined) {
@@ -262,30 +330,51 @@ Glyph.prototype.getContours = function() {
  */
 
 /**
+ * all points (each as `{ x, y, }`)
+ * (with)in {@link GPolySplineDesc the segment-seq }
+ * 
+ */
+const getAllPointsInSegmSeq = (
+    /**
+     * 
+     * @param {GPolySplineDesc["commands"] } commands 
+     */
+    (commands) => {
+        ;
+        const xyCoords = (
+            commands
+            .flatMap(cmd => [...reiterableBy(/** @return {Generator<{ x: Number, y: Number }> } */ function* () {
+                ;
+    
+                /* MAIN SEGMENT-END POINT(s) */
+                if (cmd.type === 'M' || cmd.type === 'L' || cmd.type === 'Q' || cmd.type === 'C') {
+                    yield { x: cmd.x, y: cmd.y } ;
+                }
+
+                /* SUB-SEGMENT POINT(s) */
+                if (cmd.type === 'Q' || cmd.type === 'C') {
+                    yield { x: cmd.x1, y: cmd.y1 } ;
+                }
+                if (cmd.type === 'C') {
+                    yield { x: cmd.x2, y: cmd.y2 } ;
+                }
+            })] )
+        ) ;
+        return xyCoords ;
+    }
+) ;
+
+/**
  * Calculate the xMin/yMin/xMax/yMax/lsb/rsb for a Glyph.
  * @return {GlyphMetriclikeDict }
  */
 Glyph.prototype.getMetrics = function() {
     const commands = this.path.commands;
-    const xCoords = [];
-    const yCoords = [];
-    for (const cmd of commands )
-    {
-        if (cmd.type !== 'Z') {
-            xCoords.push(cmd.x);
-            yCoords.push(cmd.y);
-        }
-
-        if (cmd.type === 'Q' || cmd.type === 'C') {
-            xCoords.push(cmd.x1);
-            yCoords.push(cmd.y1);
-        }
-
-        if (cmd.type === 'C') {
-            xCoords.push(cmd.x2);
-            yCoords.push(cmd.y2);
-        }
-    }
+    const xyCoords = (
+        getAllPointsInSegmSeq(commands )
+    ) ;
+    const xCoords = xyCoords.map(p => p.x ) ;
+    const yCoords = xyCoords.map(p => p.y ) ;
 
     const metrics = (() => {
         ;
@@ -341,54 +430,17 @@ Glyph.prototype.draw = function(ctx, x, y, fontSize, options) {
  * @param  {number} [fontSize=72] - Font size in pixels. We scale the glyph units by `1 / unitsPerEm * fontSize`.
  */
 Glyph.prototype.drawPoints = function(ctx, x, y, fontSize) {
-    /**
-     * @param {Array<{ x: number ; y: number ; }> } l
-     * @param {number} x 
-     * @param {number} y
-     * @param {number} scale
-     * @returns {void}
-     */
-    function drawCircles(l, x, y, scale) {
-        ctx.beginPath();
-        for (const pt of l )
-        {
-            ctx.moveTo(x + (pt.x * scale), y + (pt.y * scale));
-            ctx.arc(x + (pt.x * scale), y + (pt.y * scale), 2, 0, Math.PI * 2, false);
-        }
-
-        ctx.closePath();
-        ctx.fill();
-    }
+    ;
 
     x = x !== undefined ? x : 0;
     y = y !== undefined ? y : 0;
     fontSize = fontSize !== undefined ? fontSize : 24;
-    const scale = 1 / (this.path.unitsPerEm ?? athrow(`[Glyph.this.drawPoints] [scale] missing 'unitsPerEm' in 'this.path'`) ) * fontSize;
+    const scale = this.path.computePreferredScaleFactorByFontSize(fontSize) ;
 
-    /** @type {Array<{ x: number ; y: number ; }> } */
-    const blueCircles = [];
-    /** @type {Array<{ x: number ; y: number ; }> } */
-    const redCircles = [];
+    ;
     const path = this.path;
-    for (const cmd of path.commands )
-    {
-        if (cmd.x !== undefined) {
-            blueCircles.push({x: cmd.x, y: -cmd.y});
-        }
 
-        if ("x1" in cmd ) {
-            redCircles.push({x: cmd.x1, y: -cmd.y1});
-        }
-
-        if (("x2" in cmd ) ) {
-            redCircles.push({x: cmd.x2, y: -cmd.y2});
-        }
-    }
-
-    ctx.fillStyle = 'blue';
-    drawCircles(blueCircles, x, y, scale);
-    ctx.fillStyle = 'red';
-    drawCircles(redCircles, x, y, scale);
+    drawPointsInPath(ctx, path, { x, y, scale, flipY: true, } ) ;
 };
 
 /**
@@ -402,11 +454,15 @@ Glyph.prototype.drawPoints = function(ctx, x, y, fontSize) {
  * @param  {number} [fontSize=72] - Font size in pixels. We scale the glyph units by `1 / unitsPerEm * fontSize`.
  */
 Glyph.prototype.drawMetrics = function(ctx, x, y, fontSize) {
+    ;
+
+    const { unitsPerEm = athrow(`missing property 'unitsPerEm'.`), } = this.path ;
+
     let scale;
     x = x !== undefined ? x : 0;
     y = y !== undefined ? y : 0;
     fontSize = fontSize !== undefined ? fontSize : 24;
-    scale = 1 / this.path.unitsPerEm * fontSize;
+    scale = 1 / unitsPerEm * fontSize;
     ctx.lineWidth = 1;
 
     // Draw the origin
@@ -436,7 +492,7 @@ Glyph.prototype.drawMetrics = function(ctx, x, y, fontSize) {
 
 /**
  * Convert the Glyph's Path to a string of path data instructions
- * @param  {object|number} [options={decimalPlaces:2, optimize:true}] - Options object (or amount of decimal places for floating-point values for backwards compatibility)
+ * @param  {SVGOutputOptions|number} [options={decimalPlaces:2, optimize:true}] - Options object (or amount of decimal places for floating-point values for backwards compatibility)
  * @return {string}
  * @see Path.toPathData
  */
@@ -448,7 +504,7 @@ Glyph.prototype.toPathData = function(options) {
  * Sets the path data from an SVG path element or path notation
  * 
  * @param  {string|SVGPathElement } pathData
- * @param  {object} options
+ * @param  {SVGOutputOptions} options
  */
 Glyph.prototype.fromSVG = function(pathData, options = {}) {
     return this.path.fromSVG(pathData, options);
@@ -457,7 +513,7 @@ Glyph.prototype.fromSVG = function(pathData, options = {}) {
 /**
  * Convert the Glyph's Path to an SVG <path> element, as a string.
  * 
- * @param  {object|number} [options={decimalPlaces:2, optimize:true}] - Options object (or amount of decimal places for floating-point values for backwards compatibility)
+ * @param  {SVGOutputOptions|number} [options={decimalPlaces:2, optimize:true}] - Options object (or amount of decimal places for floating-point values for backwards compatibility)
  * @return {string}
  */
 Glyph.prototype.toSVG = function(options) {
@@ -467,7 +523,7 @@ Glyph.prototype.toSVG = function(options) {
 /**
  * Convert the path to a DOM element.
  * 
- * @param  {object|number} [options={decimalPlaces:2, optimize:true}] - Options object (or amount of decimal places for floating-point values for backwards compatibility)
+ * @param  {SVGOutputOptions|number} [options={decimalPlaces:2, optimize:true}] - Options object (or amount of decimal places for floating-point values for backwards compatibility)
  * @return {SVGPathElement}
  */
 Glyph.prototype.toDOMElement = function(options) {
@@ -475,3 +531,7 @@ Glyph.prototype.toDOMElement = function(options) {
 };
 
 export default Glyph;
+
+export { Glyph, } ;
+export { BoundingBox, } ;
+export { Path, } ;

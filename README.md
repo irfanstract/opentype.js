@@ -75,6 +75,10 @@ If you plan on improving or debugging opentype.js, you can:
 - check if all still works fine with `npm run test`
 - commit and open a Pull Request with your changes. Thank you!
 
+expected TypeScript dependency: `typescript` version `5.3`
+
+Thank you!
+
 ## Usage
 
 ### Loading a WOFF/OTF/TTF font
@@ -125,9 +129,12 @@ const font = opentype.parse(Module.decompress(await buffer));
 
 ### Loading a font (1.x style)
 
-This example relies on the deprecated `.load()` method
+This example relies on the server-side-only `.load()` method
 
 ```js
+/* main export `cb-opentype` doesn't have those methods */
+import opentype from "cb-opentype/opentype_sv" ;
+
 // case 1: from an URL
 const font = opentype.load('./fonts/my.woff', {}, {isUrl: true});
 // case 2: from filesystem
@@ -171,6 +178,12 @@ const font = new opentype.Font({
     ascender: 800,
     descender: -200,
     glyphs: glyphs});
+
+/**
+ * currently this only produces CFF1 font fmts ;
+ * we're hoping to add support for more fmts
+ * 
+ */
 font.download();
 ```
 
@@ -183,7 +196,7 @@ If you want to get an `ArrayBuffer`, use `font.toArrayBuffer()`.
 A Font represents a loaded OpenType font file. It contains a set of glyphs and methods to draw text on a drawing context, or to get a path representing the text.
 
 * `glyphs`: an indexed list of Glyph objects.
-* `unitsPerEm`: X/Y coordinates in fonts are stored as integers. This value determines the size of the grid. Common values are `2048` and `4096`.
+* `unitsPerEm`: X/Y coordinates in fonts are stored as integers. This value determines the size of the grid. must be `2^i` - commonly `1024` and `2048` and `4096` - for TTO(s) ; no idea abt the PS ones .
 * `ascender`: Distance from baseline of highest ascender. In font units, not pixels.
 * `descender`: Distance from baseline of lowest descender. In font units, not pixels.
 
@@ -247,7 +260,10 @@ This corresponds to `canvas2dContext.measureText(text).width`
 * `options`: See `Font.getPath()`
 
 #### The Glyph object
-A Glyph is an individual mark that often corresponds to a character. Some glyphs, such as ligatures, are a combination of many characters. Glyphs are the basic building blocks of a font.
+a Glyph is an individual mark that generally are assigned to a Unicode Code Point
+(some, like `.notdef`, and internally-listed ones, are not assigned to any).
+some glyphs, such as ligatures, are a combination of many characters.
+Glyphs are the basic building blocks of a font.
 
 * `font`: A reference to the Font object.
 * `name`: The glyph name (e.g. `"Aring"`, `"five"`)
@@ -365,6 +381,6 @@ I would like to acknowledge the work of others without which opentype.js wouldn'
 * [ttf.js](https://ynakajima.github.io/ttf.js/demo/glyflist/): for hints about the TrueType parsing code.
 * [CFF-glyphlet-fonts](https://pomax.github.io/CFF-glyphlet-fonts/): for a great explanation/implementation of CFF font writing.
 * [tiny-inflate](https://github.com/foliojs/tiny-inflate): for WOFF decompression.
-* [Microsoft Typography](https://docs.microsoft.com/en-us/typography/opentype/spec/otff): the go-to reference for all things OpenType.
+* [Microsoft Typography](https://learn.microsoft.com/en-us/typography/opentype/spec/): the go-to reference for all things OpenType.
 * [Adobe Compact Font Format spec](http://download.microsoft.com/download/8/0/1/801a191c-029d-4af3-9642-555f6fe514ee/cff.pdf) and the [Adobe Type 2 Charstring spec](http://download.microsoft.com/download/8/0/1/801a191c-029d-4af3-9642-555f6fe514ee/type2.pdf): explains the data structures and commands for the CFF glyph format.
 * All [contributors](https://github.com/opentypejs/opentype.js/graphs/contributors).

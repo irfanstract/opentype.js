@@ -21,10 +21,10 @@ export const athrow = /** @satisfies {<V>(...args: Parameters<typeof TypeError> 
  * 
  * `throw` `new` non-`TypeError` exception with (exact) given args.
  * 
- * @type {<V>(...args: Parameters<typeof TypeError> ) => never }
+ * @type {<V>(...args: [message?: string | undefined, options?: ErrorOptions | undefined] ) => never }
  */
-export const assertionFail = /** @satisfies {<V>(...args: Parameters<typeof TypeError> ) => V } */ ((...args) => {
-  throw new Error(...args) ;
+export const assertionFail = /** @satisfies {<V>(...args: Parameters<typeof TypeError> ) => V } */ ((...[msg = `assertion failed` , options]) => {
+  throw new Error(...[msg, options]) ;
 } ) ;
 
 

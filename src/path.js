@@ -430,6 +430,7 @@ GPolySplineBuffer.prototype.toSVG = function(options, pathData) {
   if (!pathData) {
       pathData = this.toPathData(options);
   }
+  /** @type {string} */
   let svg = '<path d="';
   svg += pathData;
   svg += '"';
@@ -437,12 +438,12 @@ GPolySplineBuffer.prototype.toSVG = function(options, pathData) {
       if (this.fill === null) {
           svg += ' fill="none"';
       } else {
-          svg += ' fill="' + this.fill + '"';
+          svg += ` fill="${this.fill}"`;
       }
   }
 
   if (this.stroke) {
-      svg += ' stroke="' + this.stroke + '" stroke-width="' + this.strokeWidth + '"';
+      svg += ` stroke="${this.stroke}" stroke-width="${this.strokeWidth}"`;
   }
 
   svg += '/>';
@@ -481,3 +482,109 @@ GPolySplineBuffer.prototype.toDOMElement = function(options, pathData) {
 };
 
 export default GPolySplineBuffer;
+
+export { GPolySplineBuffer } ;
+
+/**
+ * Draw the points of this {@link GPolySplineBuffer }.
+ * On-curve points will be drawn in blue, off-curve points will be drawn in red
+ * 
+ * a utility for high-level visualisation.
+ * 
+ * {@link drawPointsInPath }
+ * 
+ * @param {[CanvasRenderingContext2D, ...[options?: (Parameters<typeof drawPointsInPath>[2] & {}) extends infer S ? (Omit<S, "scale" | "flipY"> & Partial<S>) : never ] ]} args
+ */
+GPolySplineBuffer.prototype.drawPoints = function(...[ctx, { scale = 1, x, y, flipY = false, ...options } = ({ x: 0, y: 0, }) ]) {
+  return drawPointsInPath(ctx, this, { ...(options), x, y, scale, flipY, }) ;
+} ;
+
+/**
+ * Draw the points of this {@link GPolySplineBuffer }.
+ * On-curve points will be drawn in blue, off-curve points will be drawn in red
+ * 
+ * a utility for high-level visualisation.
+ * 
+ * {@link drawPointsInPath }
+ * 
+ * @param {[CanvasRenderingContext2D, import('./font.js').Font, (Parameters<typeof drawPointsInPath>[2] & {}) & { fontSize: number } ]} args
+ */
+GPolySplineBuffer.prototype.drawPointsAssumingFromFont = function(...[ctx, font, { x, y, fontSize, flipY, }]) {
+  
+  x = x !== undefined ? x : 0;
+  y = y !== undefined ? y : 0;
+  fontSize = fontSize !== undefined ? fontSize : 72;
+  const scale = this.computePreferredScaleFactorByFontSize(fontSize) ;
+
+  //     ;
+  //     const path = this.path;
+
+  return drawPointsInPath(ctx, this, { x, y, scale, flipY, }) ;
+} ;
+
+/**
+ * Draw the points of the {@link GPolySplineBuffer }.
+ * On-curve points will be drawn in blue, off-curve points will be drawn in red
+ * 
+ * a utility for high-level visualisation.
+ * 
+ * @param {[CanvasRenderingContext2D, GPolySplineBuffer | GPolySplineDesc, { [k in keyof {x, y, scale, }]: number ; } & { [ k in keyof { flipY, } ]: boolean, } ]} args
+ */
+const drawPointsInPath = function(...[ctx, path, { x, y, scale, flipY, }]) {
+  ;
+  
+  /**
+   * @param {Array<{ x: number ; y: number ; }> } l
+   * @param {number} x 
+   * @param {number} y
+   * @param {number} scale
+   * @returns {void}
+   */
+  function drawCircles(l, x, y, scale) {
+      ctx.beginPath();
+      for (const pt of l )
+      {
+          ctx.moveTo(x + (pt.x * scale), y + (pt.y * scale));
+          ctx.arc(x + (pt.x * scale), y + (pt.y * scale), 2, 0, Math.PI * 2, false);
+      }
+
+      ctx.closePath();
+      ctx.fill();
+  }
+
+  const flippingFactor = (flipY ? -1 : 1 ) ;
+
+  /** @type {Array<{ x: number ; y: number ; }> } */
+  const blueCircles = [];
+  /** @type {Array<{ x: number ; y: number ; }> } */
+  const redCircles = [];
+  for (const cmd of path.commands )
+  {
+      /* MAIN SEGMENT-END POINT(s) */
+      if (cmd.x !== undefined) {
+          blueCircles.push({x: cmd.x, y: flippingFactor * cmd.y});
+      }
+
+      /* SUB-SEGMENT POINT(s) */
+      if ("x1" in cmd ) {
+          redCircles.push({x: cmd.x1, y: flippingFactor * cmd.y1});
+      }
+      if (("x2" in cmd ) ) {
+          redCircles.push({x: cmd.x2, y: flippingFactor * cmd.y2});
+      }
+  }
+
+  ctx.fillStyle = 'blue';
+  drawCircles(blueCircles, x, y, scale);
+  ctx.fillStyle = 'red';
+  drawCircles(redCircles, x, y, scale);
+} ;
+
+GPolySplineBuffer.prototype.computePreferredScaleFactorByFontSize = /** @param {Number} fontSize */ function (fontSize) {
+  return 1 / (this.unitsPerEm ?? SpcFont.preferredFontEmSize ?? athrow(`[GPolySplineBuffer.this.computePreferredScaleFactorByFontSize] missing necessary 'unitsPerEm' attribute `) ) * fontSize ;
+} ;
+
+export { drawPointsInPath } ;
+
+import SpcFont from './font.js';
+

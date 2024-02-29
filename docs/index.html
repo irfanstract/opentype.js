@@ -62,6 +62,12 @@
 
     <hr>
 
+    <div class="explain" id="buildinfo">
+        <p>
+            no build info
+        </p>
+    </div>
+
     <div class="explain">
         <h1>Free Software</h1>
         <p>opentype.js is available on <a href="https://github.com/opentypejs/opentype.js">GitHub</a> under the <a href="https://raw.github.com/opentypejs/opentype.js/master/LICENSE">MIT License</a>.</p>
@@ -75,6 +81,8 @@
 <script type="module">
 import * as opentype from "/dist/opentype.module.js";
 
+console["log"](JSON.parse(JSON.stringify(opentype) ) ) ;
+
 const form = document.forms.demo;
 form.oninput = renderText;
 let font = null;
@@ -87,28 +95,64 @@ function doSnap(path) {
     const snapDistance = +form.snapDistance.value;
     const snapX = +form.snapX.value;
     const snapY = +form.snapY.value;
-    for (let i = 0; i < path.commands.length; i++) {
-        var cmd = path.commands[i];
-        if (cmd.type !== 'Z') {
-            cmd.x = snap(cmd.x + snapX, snapDistance, strength) - snapX;
-            cmd.y = snap(cmd.y + snapY, snapDistance, strength) - snapY;
+    // const sps = (
+    //     (/** @type {({ type: keyof { Z, M, L, H, V, Q, C, } , } & { [k in `${"x" | "y" }${"" | 1 | 2 }` ] ?: number ; })[] } */ (path.commands))
+    //     .map((cmd, i, srcList) => ({
+    //         ctrls: [...(/** @return {Generator<{ moveTo: ({ x: number ; y: number ; }) => void ; }> } */ function* () {
+    //             if (cmd.type !== 'Z') {
+    //                 yield { moveTo: ({ x, y, }) => { cmd.x = x ; cmd.y = y ; } } ;
+    //             }
+    //             if (cmd.type === 'Q' || cmd.type === 'C') {
+    //                 yield { moveTo: ({ x, y, }) => { cmd.x1 = x ; cmd.y1 = y ; } } ;
+    //             }
+    //             if (cmd.type === 'C') {
+    //                 yield { moveTo: ({ x, y, }) => { cmd.x2 = x ; cmd.y2 = y ; } } ;
+    //             }
+    //         })() ] ,
+    //         // endPt: { get x() { return cmd.x ; }, get y() { return cmd.y ; } } ,
+    //         endPt: cmd ,
+    //         startPt: srcList[i + -1] ,
+    //     }) )
+    // ) ;
+    (() => {
+        ;
+        switch (1) {
+            case 1 : return { exec: () => {
+                ;
+                const { allPts, hintablePts } = opentype.sim.expandIntoTtAlikeSpline(path) ;
+                for (const cmd of hintablePts )
+                {
+                    cmd.x = snap(cmd.x + snapX, snapDistance, strength) - snapX;
+                    cmd.y = snap(cmd.y + snapY, snapDistance, strength) - snapY;
+                }
+            } } ;
+            case 0: return { exec: () => {
+                ;
+                for (let i = 0; i < path.commands.length; i++) {
+                    var cmd = path.commands[i];
+                    if (cmd.type !== 'Z') {
+                        cmd.x = snap(cmd.x + snapX, snapDistance, strength) - snapX;
+                        cmd.y = snap(cmd.y + snapY, snapDistance, strength) - snapY;
+                    }
+                    if (cmd.type === 'Q' || cmd.type === 'C') {
+                        cmd.x1 = snap(cmd.x1 + snapX, snapDistance, strength) - snapX;
+                        cmd.y1 = snap(cmd.y1 + snapY, snapDistance, strength) - snapY;
+                    }
+                    if (cmd.type === 'C') {
+                        cmd.x2 = snap(cmd.x2 + snapX, snapDistance, strength) - snapX;
+                        cmd.y2 = snap(cmd.y2 + snapY, snapDistance, strength) - snapY;
+                    }
+                }
+            } } ;
         }
-        if (cmd.type === 'Q' || cmd.type === 'C') {
-            cmd.x1 = snap(cmd.x1 + snapX, snapDistance, strength) - snapX;
-            cmd.y1 = snap(cmd.y1 + snapY, snapDistance, strength) - snapY;
-        }
-        if (cmd.type === 'C') {
-            cmd.x2 = snap(cmd.x2 + snapX, snapDistance, strength) - snapX;
-            cmd.y2 = snap(cmd.y2 + snapY, snapDistance, strength) - snapY;
-        }
-    }
+    } )().exec() ;
 }
 
 function renderText() {
     const font = window.font;
     if (!font) return;
     const textToRender = form.textField.value;
-    var previewCtx = document.getElementById('preview').getContext('2d');
+    const fontSize = +form.fontsize.value;
     var options = {
         kerning: form.kerning.checked,
         hinting: form.hinting.checked,
@@ -117,21 +161,45 @@ function renderText() {
             rlig: form.ligatures.checked
         }
     };
-    previewCtx.clearRect(0, 0, 940, 300);
-    const fontSize = +form.fontsize.value;
-    font.draw(previewCtx, textToRender, 0, 200, fontSize, options);
-    if (form.drawPoints.checked) {
-        font.drawPoints(previewCtx, textToRender, 0, 200, fontSize, options);
-    }
-    if (form.drawMetrics.checked) {
-        font.drawMetrics(previewCtx, textToRender, 0, 200, fontSize, options);
-    }
+    (async () => {
+        ;
+        var previewCtx = document.getElementById('preview').getContext('2d');
+        previewCtx.clearRect(0, 0, 940, 300);
+        font.draw(previewCtx, textToRender, 0, 200, fontSize, options);
+        if (form.drawPoints.checked) {
+            font.drawPoints(previewCtx, textToRender, 0, 200, fontSize, options);
+        }
+        if (form.drawMetrics.checked) {
+            font.drawMetrics(previewCtx, textToRender, 0, 200, fontSize, options);
+        }
+    })() ;
 
-    const snapPath = font.getPath(textToRender, 0, 200, fontSize, options);
-    doSnap(snapPath);
-    var snapCtx = document.getElementById('snap').getContext('2d');
-    snapCtx.clearRect(0, 0, 940, 300);
-    snapPath.draw(snapCtx);
+    (async () => {
+        ;
+        const snapPath = font.getPath(textToRender, 0, 200, fontSize, options);
+        doSnap(snapPath);
+        var snapCtx = document.getElementById('snap').getContext('2d');
+        snapCtx.clearRect(0, 0, 940, 300);
+        snapPath.draw(snapCtx);
+        // this.forEachGlyph(text, x, y, fontSize, options, function(glyph, gX, gY, gFontSize) {
+        //     glyph.drawPoints(ctx, gX, gY, gFontSize);
+        // });
+        // snapPath.unitsPerEm = font.unitsPerEm ;
+        // snapPath.drawPoints(snapCtx , { x:0, y:0, scale: snapPath.computePreferredScaleFactorByFontSize(fontSize) } );
+        // font.forEachGlyph("O", 0, 200, fontSize, options,  function(glyph, gX, gY, gFontSize) {
+        //     ;
+        //     snapPath.drawPoints(snapCtx );
+        // } ) ;
+        snapPath.drawPoints(snapCtx );
+        // // snapPath.drawPointsAssumingFromFont(snapCtx , font , { x: 0, y: 250, fontSize: fontSize, } );
+        // if (form.drawPoints.checked) {
+        //     // font.drawPoints(snapCtx, textToRender, 0, 200, fontSize, options);
+        //     font.forEachGlyph(textToRender, 0, 200, fontSize, options, (glyph, gX, gY, gFontSize) => {
+        //         glyph.drawPoints(snapCtx, gX, gY, gFontSize);
+        //         snapPath.drawPointsAssumingFromFont(snapCtx , font , { x: gX, y: gY, fontSize: gFontSize, } );
+        //     } ) ;
+        // }
+    })() ;
 }
 
 function enableHighDPICanvas(canvas) {

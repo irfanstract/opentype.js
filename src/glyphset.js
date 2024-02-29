@@ -1,8 +1,27 @@
 // The GlyphSet object
 
+import { athrow, assertionFail } from './athrow.mjs';
+
+/**
+ * @typedef {T | (() => T) } DirectlyOrVoidFunctionReturning
+ * @template T
+ * 
+ */
+
+import Path from './path.js';
+
 import Glyph from './glyph.js';
 
-// Define a property on the glyph that depends on the path being loaded.
+/** @typedef {import('./font.js').Font } Font */
+
+/**
+ * Define a property on the glyph that depends on the path being loaded.
+ * 
+ * @param {Glyph} glyph
+ * @param {string} externalName *the external name*
+ * @param {string} internalName *the internal name*
+ * 
+ */
 function defineDependentProperty(glyph, externalName, internalName) {
     Object.defineProperty(glyph, externalName, {
         get: function() {
@@ -24,15 +43,15 @@ function defineDependentProperty(glyph, externalName, internalName) {
  * necessary, to keep the memory footprint down.
  * @exports opentype.GlyphSet
  * @class
- * @param {opentype.Font}
- * @param {Array}
+ * @param {Font}  font
+ * @param {Glyph[] } [glyphs]
  */
 function GlyphSet(font, glyphs) {
     this.font = font;
-    this.glyphs = {};
+    this.glyphs = /** @type {{ [idx: Number]: DirectlyOrVoidFunctionReturning<Glyph> } } */ ({});
     if (Array.isArray(glyphs)) {
-        for (let i = 0; i < glyphs.length; i++) {
-            const glyph = glyphs[i];
+        for (const [i, glyph] of glyphs.entries() )
+        {
             glyph.path.unitsPerEm = font.unitsPerEm;
             this.glyphs[i] = glyph;
         }
@@ -43,34 +62,38 @@ function GlyphSet(font, glyphs) {
 
 if(typeof Symbol !== 'undefined' && Symbol.iterator) {
     /**
-     * @return {opentype.GlyphSet[Symbol.iterator]}
+     * 
      */
     GlyphSet.prototype[Symbol.iterator] = function() {
         let n = -1;
         return {
-            next: (function() {
+            next: () => {
                 n++;
                 const done = n >= this.length - 1;
                 return {value:this.get(n), done:done};
-            }).bind(this)
+            } ,
         };
     };
 }
 
 /**
  * @param  {number} index
- * @return {opentype.Glyph}
+ * @return {Glyph}
  */
 GlyphSet.prototype.get = function(index) {
     // this.glyphs[index] is 'undefined' when low memory mode is on. glyph is pushed on request only.
     if (this.glyphs[index] === undefined) {
         this.font._push(index);
-        if (typeof this.glyphs[index] === 'function') {
-            this.glyphs[index] = this.glyphs[index]();
-        }
+        
+        const glyph0 = this.glyphs[index] ?? athrow(`no glyph/grapheme ${index } `) ;
 
-        let glyph = this.glyphs[index];
-        let unicodeObj = this.font._IndexToUnicodeMap[index];
+        const glyph = this.glyphs[index] = ((typeof glyph0 === 'function') ? glyph0() : glyph0 ) ;
+
+        const unicodeObj = this.font._IndexToUnicodeMap[index];
+
+        if (typeof glyph === 'function') {
+            return assertionFail() ;
+        }
 
         if (unicodeObj) {
             for (let j = 0; j < unicodeObj.unicodes.length; j++)
@@ -83,12 +106,18 @@ GlyphSet.prototype.get = function(index) {
             glyph.name = this.font.glyphNames.glyphIndexToName(index);
         }
 
-        this.glyphs[index].advanceWidth = this.font._hmtxTableData[index].advanceWidth;
-        this.glyphs[index].leftSideBearing = this.font._hmtxTableData[index].leftSideBearing;
-    } else {
-        if (typeof this.glyphs[index] === 'function') {
-            this.glyphs[index] = this.glyphs[index]();
-        }
+        const hmtxDict = this.font._hmtxTableData[index] ?? athrow(`no HMTX for glyph ${index } `) ;
+
+        glyph.advanceWidth    = hmtxDict.advanceWidth;
+        glyph.leftSideBearing = hmtxDict.leftSideBearing;
+    }
+    else {
+        ;
+
+        const glyph0 = this.glyphs[index] ?? athrow(`no glyph/grapheme ${index } `) ;
+
+        const glyph = this.glyphs[index] = ((typeof glyph0 === 'function') ? glyph0() : glyph0 ) ;
+
     }
 
     return this.glyphs[index];
@@ -96,7 +125,7 @@ GlyphSet.prototype.get = function(index) {
 
 /**
  * @param  {number} index
- * @param  {Object}
+ * @param  {Object} loader
  */
 GlyphSet.prototype.push = function(index, loader) {
     this.glyphs[index] = loader;
@@ -105,9 +134,9 @@ GlyphSet.prototype.push = function(index, loader) {
 
 /**
  * @alias opentype.glyphLoader
- * @param  {opentype.Font} font
+ * @param  {Font} font
  * @param  {number} index
- * @return {opentype.Glyph}
+ * @return {Glyph}
  */
 function glyphLoader(font, index) {
     return new Glyph({index: index, font: font});
@@ -118,13 +147,14 @@ function glyphLoader(font, index) {
  * the "points" and "path" properties, which must be loaded only once
  * the glyph's path is actually requested for text shaping.
  * @alias opentype.ttfGlyphLoader
- * @param  {opentype.Font} font
+ * @param  {Font} font
  * @param  {number} index
- * @param  {Function} parseGlyph
- * @param  {Object} data
+ * @param  {OtjsTtGlyphCbk } parseGlyph
+ * @param  {DataBufT} data
  * @param  {number} position
  * @param  {Function} buildPath
- * @return {opentype.Glyph}
+ * @template {import('./parse.js').OtjsPrsByteBuffer } DataBufT
+ * @return {() => Glyph}
  */
 function ttfGlyphLoader(font, index, parseGlyph, data, position, buildPath) {
     return function() {
@@ -145,13 +175,37 @@ function ttfGlyphLoader(font, index, parseGlyph, data, position, buildPath) {
         return glyph;
     };
 }
+
+/**
+ * Parse a TrueType glyph.
+ * 
+ * @callback OtjsTtGlyphCbk
+ * 
+ * @param {Glyph } glyph
+ * @param {import('./parse.js').OtjsPrsByteBuffer } data
+ * @param {Uint8Array["length"] } start
+ * 
+ * @returns {void}
+ * 
+ */
+const OtjsTtGlyphCbk = {} ;
+
+/**
+ * Parse a PSc glyph.
+ * 
+ * @typedef {(...args: [Font, Glyph, ...[code: string, specVersion: number] ] ) => Path } OtjsPscGlyphCbk
+ * 
+ */
+const OtjsPscGlyphCbk = {} ;
+
 /**
  * @alias opentype.cffGlyphLoader
- * @param  {opentype.Font} font
+ * @param  {Font} font
  * @param  {number} index
- * @param  {Function} parseCFFCharstring
+ * @param  {OtjsPscGlyphCbk } parseCFFCharstring
  * @param  {string} charstring
- * @return {opentype.Glyph}
+ * @param  {number} version
+ * @return {() => Glyph}
  */
 function cffGlyphLoader(font, index, parseCFFCharstring, charstring, version) {
     return function() {
@@ -168,3 +222,15 @@ function cffGlyphLoader(font, index, parseCFFCharstring, charstring, version) {
 }
 
 export default { GlyphSet, glyphLoader, ttfGlyphLoader, cffGlyphLoader };
+
+export { GlyphSet,  } ;
+
+export {
+    glyphLoader,
+    //
+    ttfGlyphLoader,
+    OtjsTtGlyphCbk ,
+    //
+    cffGlyphLoader,
+    OtjsPscGlyphCbk ,
+} ;

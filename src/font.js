@@ -108,7 +108,7 @@ function Font(options = {}) {
         this.names.unicode = createDefaultNamesInfo(options);
         this.names.macintosh = createDefaultNamesInfo(options);
         this.names.windows = createDefaultNamesInfo(options);
-        this.unitsPerEm = options.unitsPerEm || 1000;
+        this.unitsPerEm = options.unitsPerEm || Font.preferredFontEmSize;
         this.ascender = options.ascender;
         this.descender = options.descender;
         this.createdTimestamp = options.createdTimestamp;
@@ -447,11 +447,18 @@ Font.prototype.forEachGlyph = function(text, x, y, fontSize, options, callback =
         if (options.letterSpacing) {
             x += options.letterSpacing * fontSize;
         } else if (options.tracking) {
-            x += (options.tracking / 1000) * fontSize;
+            x += (options.tracking / Font.preferredFontEmSize ) * fontSize;
         }
     }
     return x;
 };
+
+/**
+ * 
+ * @type {number }
+ */
+Font.preferredFontEmSize = 1000 ;
+//
 
 /**
  * @typedef {Required<Parameters<Glyph["getPath"] > >[3] } GlyphRenderHintingOptions
@@ -471,7 +478,7 @@ Font.prototype.getPath = function(text, x, y, fontSize = 72, options) {
     const fullPath = new Path();
     applyPaintType(this, fullPath, fontSize);
     if (fullPath.stroke) {
-        const scale = 1 / (fullPath.unitsPerEm || 1000) * fontSize;
+        const scale = 1 / (fullPath.unitsPerEm || Font.preferredFontEmSize) * fontSize;
         // @ts-ignore
         fullPath.strokeWidth *= scale;
     }

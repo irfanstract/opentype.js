@@ -50,8 +50,8 @@ export { GpsbSplineSegmentCoord } ;
  * @property {"C" | "Q" } y1
  * @property {"C" } x2
  * @property {"C" } y2
- * @property {"C" | "Q" | "H" | "L" | "M" } x
- * @property {"C" | "Q" | "V" | "L" | "M" } y
+ * @property {"C" | "Q" | "L" | "M" } x
+ * @property {"C" | "Q" | "L" | "M" } y
  * 
  */
 const GpsbCoordFieldOccurenceTable = {} ;
