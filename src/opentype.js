@@ -539,3 +539,5 @@ export {
 // export {
 //   load ,
 // } from "./opentype_sv.mjs" ;
+
+// export { default as packageInfo } from '../package.json';

@@ -62,6 +62,12 @@
 
     <hr>
 
+    <div class="explain" id="buildinfo">
+        <p>
+            no build info
+        </p>
+    </div>
+
     <div class="explain">
         <h1>Free Software</h1>
         <p>opentype.js is available on <a href="https://github.com/opentypejs/opentype.js">GitHub</a> under the <a href="https://raw.github.com/opentypejs/opentype.js/master/LICENSE">MIT License</a>.</p>
@@ -74,6 +80,8 @@
 
 <script type="module">
 import * as opentype from "/dist/opentype.module.js";
+
+console["log"](opentype.packageInfo ) ;
 
 const form = document.forms.demo;
 form.oninput = renderText;

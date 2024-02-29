@@ -430,6 +430,7 @@ GPolySplineBuffer.prototype.toSVG = function(options, pathData) {
   if (!pathData) {
       pathData = this.toPathData(options);
   }
+  /** @type {string} */
   let svg = '<path d="';
   svg += pathData;
   svg += '"';
@@ -437,12 +438,12 @@ GPolySplineBuffer.prototype.toSVG = function(options, pathData) {
       if (this.fill === null) {
           svg += ' fill="none"';
       } else {
-          svg += ' fill="' + this.fill + '"';
+          svg += ` fill="${this.fill}"`;
       }
   }
 
   if (this.stroke) {
-      svg += ' stroke="' + this.stroke + '" stroke-width="' + this.strokeWidth + '"';
+      svg += ` stroke="${this.stroke}" stroke-width="${this.strokeWidth}"`;
   }
 
   svg += '/>';
