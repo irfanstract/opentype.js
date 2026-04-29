@@ -41,14 +41,17 @@ jobs:
       run: |
         echo $THE_INPUT
         
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         fetch-depth: 0
     
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@v5
       with:
-        node-version: 22
+        node-version: 24
         registry-url: 'https://registry.npmjs.org'
+
+    - name: Upgrade npm for trusted publishing
+      run: npm install -g npm@latest
     
     - name: Preflight checks
       env:
@@ -106,9 +109,6 @@ jobs:
     - name: Publish package to npm
       run: npm publish --access public --tag ${{ inputs.npmDistTag }} ${{ env.DRY_RUN }}
       env:
-        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        # https://docs.npmjs.com/generating-provenance-statements
-        NPM_CONFIG_PROVENANCE: true
         DRY_RUN: ${{ inputs.dryRun && '--dry-run' || '' }}
 
     - name: Create git tag
