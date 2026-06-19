@@ -1,0 +1,28 @@
+{
+
+  "configurations": [
+
+    {
+      "name": "02",
+      // "type": "node-terminal",
+      // "request": "launch",
+      // "command": "npx --yes bun@1.3.8 ./src/02.spec.js",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npx", "runtimeArgs": ["--yes", "bun@1.3.8", "--", "./code/XBunDotJs/src/02.spec.js", ],
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env.development.local"
+    },
+
+    // {
+    //   "command": "npm run dev",
+    //   "name": "Run 'npm run dev'",
+    //   "request": "launch",
+    //   "type": "node-terminal",
+    // } ,
+
+  ],
+}

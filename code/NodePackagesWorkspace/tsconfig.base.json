@@ -1,0 +1,143 @@
+{
+
+
+
+  "compilerOptions": {
+
+
+    /*
+     * PATHS (CURRENTLY TSSERVER-OR-BUN-ONLY, EXCEPT IF USING ADDONS LIKE `tsconfig-paths` ) -- HAS FUNDAMENTAL IMPLICATIONS, TO LINKAGE.
+     *
+     * SUPPOSEDLY
+     * SOME SETTINGS WHICH AFFECT LINKAGE !!!
+     */
+
+    //
+
+    /* enabling `noEmit` gives assumption of being run on engines like Bun, `npx tsx`, Node V23+, `ts-node` (`ts-node` deprecated) */
+
+    /* only intended for Bun, `npx tsx`, Node V23+, or `ts-node` (`ts-node` deprecated), never the CLI `tsc` - https://github.com/microsoft/TypeScript/pull/51669 . */
+    "noEmit": true ,
+    // "outDir": "dist", /* didn't work as expected */
+    "declaration": true ,
+
+    // "baseUrl": ".",
+    "moduleResolution": "NodeNext" /* https://github.com/microsoft/TypeScript/pull/51669 */,
+
+    "resolvePackageJsonExports": true,
+    "forceConsistentCasingInFileNames": true,
+
+    /* post-vendoring paths settings */
+
+    "resolveJsonModule": true,
+
+    /* `esModuleInterop` */
+
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+
+
+
+    /*
+     * MODULE-FORMAT SETTINGS -- THE IMPLICATIONS TO LINKAGE, WHILE PRESENT, AREN'T FUNDAMENTAL.
+     */
+
+    /* https://github.com/microsoft/TypeScript/pull/51669 */
+    /* we've already set `noEmit: true` */
+    "allowImportingTsExtensions": true,
+    "allowJs": true,
+
+    /*
+     * `module` -- SUPPOSEDLY A
+     * SETTINGS WHICH AFFECTS LINKAGE !!!
+     */
+
+    "module": "NodeNext",
+    "moduleDetection": "force",
+
+    /* `noEmit` and `isolatedModules` . */
+
+    // "jsx": "preserve",
+    // "jsx": "react-jsx" ,
+    "plugins": [
+      // {
+      //   "name": "next"
+      // } ,
+    ] ,
+
+    "isolatedModules": true,
+    "target": "ESNext",
+    "useDefineForClassFields": true,
+    /* `experimentalDecorators` is effectively backwards. */
+    "experimentalDecorators": false,
+
+    /* these three is at the heart of typechecking */
+
+    "strict": true,
+    "noImplicitAny": true, // '"strict": true ' did not enforce this
+    // without this
+    // the type-system would be unsound as
+    // `tsc` would pretend indexed array items always exists which cannot be proven.
+    // i believe `tsc init` should have done this.
+    "noUncheckedIndexedAccess": true,
+    // more likely a bug, than not
+    "noFallthroughCasesInSwitch": true,
+    // "noUncheckedSideEffectImports": true,
+
+
+
+    /*
+     * CHECKING-ONLY SETTINGS.
+     * IMPLICATIONS TO LINKAGE ARE VIRTUALLY ZERO --
+     * NOT DONE BY BUN NOR `npx tsx` NOR NODE V23+.
+     */
+
+     "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ESNext" ,
+    ],
+    "types" /* https://github.com/microsoft/TypeScript/issues/62508 */ : [
+      "node" ,
+      "bun" ,
+    ],
+    "skipLibCheck": true,
+    "checkJs": false,
+    "incremental": true,
+
+    /* etc */
+
+
+  },
+
+
+
+  /* for `ts-node` (`ts-node` being deprecated) */
+  "ts-node": {
+
+    /* https://github.com/TypeStrong/ts-node/issues/1934#issuecomment-1682786084 */
+
+    /* Node no longer use custom inspect on abort on uncaught exceptions, but */
+    /* `ts-node` kept doing that */
+    "logError": true,
+
+    "transpileOnly": true,
+    // /*
+    //  * we need to disable `transpileOnly` to avoid run-time `ReferenceError`s and thelike, since
+    //  * - it's possible some src-file(s) were written under `isolatedModules: false`, uses const-enum(s), and therefore necessitates type-checking in order to compile properly
+    //  * - to catch typo(s) early
+    //  */
+    // "transpileOnly": false,
+
+    /* https://typestrong.org/ts-node/docs/troubleshooting/#missing-types */
+    "files": true,
+
+    /* try to avoid those issues with import-path file-extension(s) */
+    "experimentalResolver": true,
+
+    /* avoid issues associated with ESM fmt usage, as explained in https://typestrong.org/ts-node/docs/imports#native-ecmascript-modules */
+    "esm": true,
+
+  } ,
+
+}

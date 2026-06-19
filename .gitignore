@@ -1,0 +1,164 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+
+
+
+
+
+
+# files regularly added by various OS(es)
+
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+
+
+
+# RUNNABLE/COMPILED/IR
+
+*.log
+*.tmp
+*.bak
+*.swp
+
+# IDE-specifiques
+# oftentimes there arise needs to make changes to `settings.json` due to failures to build and run
+# VSCode's C/C++ Extension frequently modify `settings.json` (eg for `files.associations`)
+# .settings
+.settings/
+# .env
+.env.local
+# .env.development
+# .env.development.local
+# .env.test.local
+# .env.production.local
+.env.*.local
+# .env.production
+# /.env
+*.local
+
+# /.vscode/*
+# !/.vscode/extensions.json
+# !/.vscode/launch.json
+/.vscode/settings.json
+# .idea
+.idea/
+.project
+*.suo
+*.ntvs*
+*.sln
+*.njsproj
+
+*.sw?
+
+# /data/
+# data/
+
+# /media/
+# /log/
+# log/
+/tmp/
+# /vendor/bundle/
+vendor/bundle/
+
+.cache/
+
+# Build Artifacts
+dist/
+build/
+built/*
+obj/
+out/
+bin/
+target/
+
+# test-run output files
+# /test/
+# test/
+# /coverage
+# /coverage/
+coverage/
+TEST-results.xml
+
+# Native
+*.o
+*.obj
+# *.app
+# *.dylib
+# *.exe
+# *.dll
+
+# C/C++
+
+# Java
+# *.class
+.classpath
+
+# TS PROJECT
+# 'node_modules'
+node_modules/
+.node_modules/
+*v8.log
+
+# COMMUNITY JS FW(s)
+# NPKM Lockfiles
+/.pnp
+.pnp.js
+yarn.lock
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+# Next
+.next/
+next-env.d.ts
+# Vite(JS)
+dist-ssr
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+.venv/
+.mypy_cache/
+# .pytest_cache/
+
+# Scala & Metals
+.bloop/
+.metals/
+.ammonite/
+metals.sbt
+
+# Optional linting cache
+.eslintcache
+
+# repo-unworthy Logfiles
+
+*.sqlite
+# *.sql
+db.sqlite3
+
+.tox/
+.bundle/
+.gradle/
+.terraform/
+
+
+
+
+#
+
+#
+
+
+
+
+# Misc
+/src/_x/numeric*
+
+
+
+
+
+
