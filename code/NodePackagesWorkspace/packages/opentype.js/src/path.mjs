@@ -11,7 +11,9 @@ import BoundingBox from './bbox.mjs';
  */
 function Path() {
     this.commands = [];
+    /** @type {string | null} */
     this.fill = 'black';
+    this.fill = "inherit";
     this.stroke = null;
     this.strokeWidth = 1;
     // the _layer property is only set on computed paths during glyph rendering
@@ -549,7 +551,9 @@ Path.prototype.draw = function(ctx) {
     }
 
     if (this.fill) {
+        if (this.fill === "inherit") {} else {
         ctx.fillStyle = this.fill;
+        }
         ctx.fill();
     }
 

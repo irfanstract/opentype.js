@@ -4,6 +4,10 @@
 @import "@fontsource-variable/open-sans";
 @import "@fontsource-variable/fira-code";
 
+bold, strong {
+  font-weight: bolder;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -31,7 +35,7 @@ body {
   font-family: Arial, Helvetica, sans-serif;
   font-family: "Open Sans Variable", "Open Sans", sans-serif;
   font-weight: 400;
-  font-weight: 500;
+  font-weight: 560;
 }
 
 :is(pre, code) {

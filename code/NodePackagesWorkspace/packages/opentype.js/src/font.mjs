@@ -1,5 +1,6 @@
 // The Font object
 
+/** @import * as opentype from './opentype.mjs'; */
 import Path from './path.mjs';
 import sfnt from './tables/sfnt.mjs';
 import { DefaultEncoding } from './encoding.mjs';
@@ -14,6 +15,9 @@ import HintingTrueType from './hintingtt.mjs';
 import Bidi from './bidi.mjs';
 import { applyPaintType } from './tables/cff.mjs';
 
+/**
+ * @param {{ familyName: string; styleName: string; fullName: any; postScriptName: any; designer: any; designerURL: any; manufacturer: any; manufacturerURL: any; license: any; licenseURL: any; version: any; description: any; copyright: any; trademark: any; }} options
+ */
 function createDefaultNamesInfo(options) {
     return {
         fontFamily: {en: options.familyName || ' '},
@@ -68,7 +72,7 @@ function createDefaultNamesInfo(options) {
  * or to get a path representing the text.
  * @exports opentype.Font
  * @class
- * @param {FontOptions}
+ * @param {FontOptions} options
  * @constructor
  */
 function Font(options) {
@@ -373,7 +377,7 @@ Font.prototype.defaultRenderOptions = {
  * @param  {number} [y=0] - Vertical position of the *baseline* of the text.
  * @param  {number} [fontSize=72] - Font size in pixels. We scale the glyph units by `1 / unitsPerEm * fontSize`.
  * @param  {GlyphRenderOptions=} options
- * @param  {Function} callback
+ * @param  {(this: opentype.Glyph, x: number, y: number, fontSize: number, options: GlyphRenderOptions) => void} callback
  */
 Font.prototype.forEachGlyph = function(text, x, y, fontSize, options, callback) {
     x = x !== undefined ? x : 0;
@@ -387,8 +391,7 @@ Font.prototype.forEachGlyph = function(text, x, y, fontSize, options, callback) 
         const script = options.script || this.position.getDefaultScriptName();
         kerningLookups = this.position.getKerningTables(script, options.language);
     }
-    for (let i = 0; i < glyphs.length; i += 1) {
-        const glyph = glyphs[i];
+    for (const [i, glyph] of glyphs.entries()) {
         callback.call(this, glyph, x, y, fontSize, options);
         if (glyph.advanceWidth) {
             x += glyph.advanceWidth * fontScale;

@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+/** Webpack and Turbopack HMR disconnects upon the device going to sleep without any further attempt to reconnect (upon wakeup). we put this here, and onto our RootLayout here, to force it (the reconnection) to do the favour. */
+import LR from "@/components/LR";
+
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,6 +31,7 @@ export default function RootLayout({
       className={`h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
+      <LR />
     </html>
   );
 }
